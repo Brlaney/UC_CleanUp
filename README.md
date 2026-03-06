@@ -6,6 +6,12 @@ All-Django web app for tracking trash sites and cleanup routes in Putnam County,
 - Frontend: Django templates + Leaflet + leaflet-draw + vanilla JS
 - Auth: login required for all map and API access (invite-only via admin user creation)
 
+## Sample Screens
+
+![Sample 1](Sample_1.png)
+
+![Sample 2](Sample_2.png)
+
 ## 1) Current MVP Capabilities
 
 - Add `TrashSite` point pins with default status `PENDING`.

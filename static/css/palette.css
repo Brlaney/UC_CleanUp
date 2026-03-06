@@ -1,0 +1,36 @@
+:root {
+  /* Global surface + text */
+  --color-text-primary: #0f1f2e;
+  --color-bg-page: #f3f7fb;
+
+  /* Top bar */
+  --color-topbar-bg: #08457E;
+  --color-topbar-text: #f5faff;
+
+  /* Buttons */
+  --color-btn-primary-bg: #0E5EA8;
+  --color-btn-primary-bg-hover: #08457E;
+  --color-btn-primary-text: #ffffff;
+
+  /* Cards + panels */
+  --color-surface: #ffffff;
+  --color-surface-soft: #f7fafc;
+  --color-border-soft: #dbe6ef;
+  --color-border-medium: #cddae6;
+  --color-border-input: #bccddc;
+  --color-border-auth: #d6e2ee;
+
+  /* Overlay */
+  --color-overlay: rgba(4, 22, 40, 0.50);
+
+  /* Map symbology */
+  --map-marker-pending: #d8572a;
+  --map-marker-in-progress: #d4b018;
+  --map-marker-cleaned: #2f9e5c;
+  --map-route-color: #2b6cb0;
+  --map-route-draw-color: #3b82d6;
+  --map-county-boundary: #1f5f96;
+  --map-county-boundary-fill: rgba(31, 95, 150, 0.12);
+  --map-outside-mask-color: #081421;
+  --map-outside-mask-opacity: 0.62;
+}

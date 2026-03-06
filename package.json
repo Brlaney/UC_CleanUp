@@ -1,0 +1,12 @@
+{
+  "name": "putnam-trashmap-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Minimal Playwright smoke checks for Putnam Trashmap",
+  "scripts": {
+    "e2e:smoke": "playwright test e2e/map-smoke.spec.js --project=chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}

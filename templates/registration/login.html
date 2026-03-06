@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="auth-wrap">
+    <h1>Sign In</h1>
+    <p>Access is invite-only. Ask an admin to create your account.</p>
+    <form method="post" class="auth-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Log in</button>
+    </form>
+</section>
+{% endblock %}

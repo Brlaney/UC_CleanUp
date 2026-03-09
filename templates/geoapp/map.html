@@ -11,13 +11,32 @@
 <section class="map-shell">
     <aside class="control-panel">
         <div class="control-panel-main">
-            <h1>Upper Cumberland CleanUp Map</h1>
-            <div class="controls">
-                <h2>Filters</h2>
-                <div class="field-row">
-                    <label><input type="checkbox" name="status" value="PENDING" checked> Pending</label>
-                    <label><input type="checkbox" name="status" value="IN_PROGRESS"> In Progress</label>
-                    <label><input type="checkbox" name="status" value="CLEANED" checked> Cleaned</label>
+            <div class="panel-hero">
+                <span class="section-kicker">Flagship View</span>
+                <h1>Upper Cumberland CleanUp Map</h1>
+                <p>Report litter, review cleanup progress, and track volunteer routes across Putnam County and the broader Upper Cumberland.</p>
+            </div>
+
+            <section class="panel-section">
+                <div class="section-header">
+                    <div>
+                        <h2>Filters</h2>
+                        <p>Control what appears in the current map view.</p>
+                    </div>
+                </div>
+                <div class="status-filter-list">
+                    <label class="toggle-chip">
+                        <input type="checkbox" name="status" value="PENDING" checked>
+                        <span>Pending</span>
+                    </label>
+                    <label class="toggle-chip">
+                        <input type="checkbox" name="status" value="IN_PROGRESS">
+                        <span>In Progress</span>
+                    </label>
+                    <label class="toggle-chip">
+                        <input type="checkbox" name="status" value="CLEANED" checked>
+                        <span>Cleaned</span>
+                    </label>
                 </div>
                 <div class="field-row">
                     <label for="days-filter">Date range</label>
@@ -27,18 +46,30 @@
                         <option value="all" selected>All</option>
                     </select>
                 </div>
-                <div class="button-row">
-                    <button id="apply-filters-btn" type="button">Apply Filters</button>
-                    <button id="report-trash-btn" type="button">Report Trash</button>
-                    <button id="log-route-btn" type="button">Log Cleanup Route</button>
+                <div class="button-row action-row">
+                    <button class="btn btn-subtle" id="apply-filters-btn" type="button">Apply Filters</button>
+                    <button class="btn btn-primary" id="report-trash-btn" type="button">Report Trash</button>
+                    <button class="btn btn-secondary" id="log-route-btn" type="button">Log Cleanup Route</button>
                 </div>
-            </div>
-            <div class="details">
-                <h2>Details</h2>
-                <div id="detail-content">Click a marker or route to inspect details.</div>
-            </div>
+            </section>
+
+            <section class="panel-section panel-section--details">
+                <div class="section-header">
+                    <div>
+                        <h2>Details</h2>
+                        <p>Inspect status, notes, proof, and route mileage for the selected feature.</p>
+                    </div>
+                </div>
+                <div id="detail-content">
+                    <div class="detail-empty-state">
+                        <span class="detail-empty-kicker">No selection</span>
+                        <h3>Details will appear here</h3>
+                        <p>Select a trash site or cleanup route on the map to review its information.</p>
+                    </div>
+                </div>
+            </section>
         </div>
-        <div class="map-type-footer">
+        <div class="map-type-footer panel-section">
             <!--
             <h2>Map type</h2>
             <div class="field-row">
@@ -52,7 +83,12 @@
                 </select>
             </div>
             -->
-            <h2>Overlays</h2>
+            <div class="section-header">
+                <div>
+                    <h2>Overlays</h2>
+                    <p>Highlight the county boundaries relevant to your current cleanup work.</p>
+                </div>
+            </div>
             <div class="field-row overlay-toggle-row">
                 <label>County boundaries</label>
                 <div class="overlay-mode-list">
@@ -162,8 +198,8 @@
                 <input type="file" name="photos" multiple accept="image/*">
             </label>
             <div class="button-row">
-                <button type="submit">Save Trash Site</button>
-                <button type="button" data-close-modal="trash-modal">Cancel</button>
+                <button class="btn btn-primary" type="submit">Save Trash Site</button>
+                <button class="btn btn-subtle" type="button" data-close-modal="trash-modal">Cancel</button>
             </div>
         </form>
     </div>
@@ -185,8 +221,8 @@
                 <input type="file" name="photos" multiple accept="image/*">
             </label>
             <div class="button-row">
-                <button type="submit">Submit Cleanup Proof</button>
-                <button type="button" data-close-modal="cleaned-modal">Cancel</button>
+                <button class="btn btn-secondary" type="submit">Submit Cleanup Proof</button>
+                <button class="btn btn-subtle" type="button" data-close-modal="cleaned-modal">Cancel</button>
             </div>
         </form>
     </div>
@@ -208,8 +244,8 @@
                 <input type="file" name="photos" multiple accept="image/*">
             </label>
             <div class="button-row">
-                <button type="submit">Save Route</button>
-                <button type="button" data-close-modal="route-modal">Cancel</button>
+                <button class="btn btn-primary" type="submit">Save Route</button>
+                <button class="btn btn-subtle" type="button" data-close-modal="route-modal">Cancel</button>
             </div>
         </form>
     </div>

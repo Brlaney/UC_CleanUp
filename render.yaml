@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: upper-cumberland-cleanup
+    runtime: docker
+    plan: starter
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "0"
+      - key: ALLOWED_HOSTS
+        value: upper-cumberland-cleanup.onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://upper-cumberland-cleanup.onrender.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: upper-cumberland-cleanup-db
+          property: connectionString
+      - key: DATABASE_SSL_REQUIRE
+        value: "1"
+      - key: RUN_COLLECTSTATIC
+        value: "1"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: USE_S3_MEDIA
+        value: "1"
+      - key: AWS_S3_REGION_NAME
+        value: auto
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_STORAGE_BUCKET_NAME
+        sync: false
+      - key: AWS_S3_ENDPOINT_URL
+        sync: false
+      - key: AWS_S3_CUSTOM_DOMAIN
+        sync: false
+
+databases:
+  - name: upper-cumberland-cleanup-db
+    plan: starter
+    databaseName: putnam_trashmap
+    user: putnam

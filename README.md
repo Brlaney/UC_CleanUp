@@ -8,9 +8,21 @@ All-Django web app for tracking trash sites and cleanup routes in Putnam County,
 
 ## Sample Screens
 
-![Sample 1](Sample_1.png)
+### Desktop Map
 
-![Sample 2](Sample_2.png)
+![Desktop map overview](docs/screenshots/map-overview-desktop.png)
+
+### Desktop Impact Dashboard
+
+![Desktop impact dashboard](docs/screenshots/impact-desktop.png)
+
+### Desktop Updates Feed
+
+![Desktop updates feed](docs/screenshots/updates-desktop.png)
+
+### iPhone Map
+
+![iPhone map overview](docs/screenshots/map-overview-iphone.png)
 
 ## 1) Current MVP Capabilities
 
@@ -28,6 +40,10 @@ All-Django web app for tracking trash sites and cleanup routes in Putnam County,
 - Filter map features by:
   - trash status (`PENDING`, `IN_PROGRESS`, `CLEANED`)
   - date range (`7`, `30`, `all`)
+- Review a basic activity feed at `/updates/`.
+- Review per-user contribution totals at `/impact/`.
+- Submit in-app bug/request/general feedback from the top bar.
+- Enforce creator/admin-only TrashSite edits and admin-only invalidation.
 - Manage all records through Django admin.
 
 ## 2) Tech Stack
@@ -36,6 +52,8 @@ All-Django web app for tracking trash sites and cleanup routes in Putnam County,
 - Django 5.2.x
 - PostgreSQL 16 + PostGIS 3.4
 - Pillow for image uploads
+- Gunicorn + WhiteNoise for production serving
+- django-storages + boto3 for S3/R2-compatible media storage
 - Leaflet + leaflet-draw via CDN
 
 ## 3) Project Layout
@@ -58,18 +76,25 @@ putnam_trashmap/
   geoapp/
     admin.py
     models.py
+    permissions.py
+    services.py
+    signals.py
     urls.py
     views.py
     tests.py
     migrations/
   templates/
     base.html
+    geoapp/impact.html
     geoapp/map.html
+    geoapp/updates.html
     registration/login.html
   static/
+    js/base.js
     css/site.css
     css/map.css
     js/map.js
+  render.yaml
 ```
 
 ## Documentation
@@ -147,10 +172,15 @@ All endpoints require login.
 - `GET /` -> redirects to `/map/`
 - `GET /accounts/login/` -> Django auth login
 - `GET /map/` -> main map UI
+- `GET /updates/` -> recent activity feed
+- `GET /impact/` -> current-user contribution totals
 - `GET /admin/` -> Django admin
 
 ### JSON Routes
 
+- `GET /healthz`
+- `GET /api/activity/?page=1&page_size=25&days=7`
+- `POST /api/feedback/`
 - `GET /api/features/?bbox=minLng,minLat,maxLng,maxLat&status=PENDING,CLEANED&days=7`
 - `POST /api/trash-sites/`
 - `GET /api/trash-sites/<id>/`
@@ -210,13 +240,29 @@ See `.env.example`.
 - `SECRET_KEY`
 - `DEBUG` (`1` or `0`)
 - `ALLOWED_HOSTS` (comma-separated)
+- `CSRF_TRUSTED_ORIGINS` (comma-separated)
 - `TIME_ZONE`
+- `DATABASE_URL` (optional; overrides `POSTGRES_*`)
 - `POSTGRES_DB`
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
 - `POSTGRES_HOST`
 - `POSTGRES_PORT`
+- `DATABASE_SSL_REQUIRE`
+- `CONN_MAX_AGE`
 - `WEB_PORT` (host port mapped to container 8000)
+- `LOG_LEVEL`
+- `RUN_COLLECTSTATIC`
+- `GUNICORN_WORKERS`
+- `SECURE_SSL_REDIRECT`
+- `SECURE_HSTS_SECONDS`
+- `USE_S3_MEDIA`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_STORAGE_BUCKET_NAME`
+- `AWS_S3_REGION_NAME`
+- `AWS_S3_ENDPOINT_URL`
+- `AWS_S3_CUSTOM_DOMAIN`
 - `INVITE_CODE` (reserved; signup not currently enabled)
 
 ## 8) Setup and Run
@@ -329,11 +375,18 @@ Current tests cover:
 
 - `RouteCleanup.distance_miles` computation
 - `mark-cleaned` behavior (`status=CLEANED`, `cleaned_at` set, proof created)
+- auth gating
+- TrashSite lifecycle and bbox filters
+- route create/detail/list flow
+- feedback submission
+- activity feed logging and impact stats
+- role-aware TrashSite permissions
+- health endpoint
 
 Run tests:
 
 ```powershell
-docker compose exec web python manage.py test
+docker compose run --rm web python manage.py test
 ```
 
 ## Smoke checks
@@ -342,7 +395,7 @@ Backend + unit/API smoke:
 
 ```powershell
 python -m compileall geoapp putnam_trashmap
-docker compose exec web python manage.py test
+docker compose run --rm web python manage.py test
 ```
 
 UI smoke (Playwright):
@@ -358,6 +411,41 @@ If your app is not on port 8000, set base URL (example 8001):
 ```powershell
 $env:E2E_BASE_URL="http://127.0.0.1:8001"
 npm run e2e:smoke
+```
+
+Screenshot gallery capture:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/capture-screenshots.ps1
+```
+
+If port `8000` is occupied:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/capture-screenshots.ps1 -WebPort 8001
+```
+
+Screenshot output is written to:
+
+- `artifacts/screenshots/desktop-chrome/`
+- `artifacts/screenshots/desktop-wide/`
+- `artifacts/screenshots/iphone-14/`
+- `artifacts/screenshots/pixel-7/`
+
+Each run captures:
+
+- `map-overview.png`
+- `map-trash-focus.png`
+- `map-route-focus.png`
+- `updates.png`
+- `impact.png`
+
+If the app is already running and you only want to regenerate screenshots:
+
+```powershell
+docker compose exec -T web python manage.py seed_screenshot_demo --reset
+$env:E2E_BASE_URL="http://127.0.0.1:8000"
+npm run e2e:screenshots
 ```
 
 ## 11) Enhancement Workflow
@@ -438,6 +526,13 @@ $env:WEB_PORT="8001"
 docker compose up -d
 ```
 
+- If you only need a one-off command while port `8000` is occupied:
+
+```powershell
+docker compose run --rm web python manage.py test
+docker compose run --rm web python manage.py migrate
+```
+
 ### Docker Desktop stuck in "starting"
 
 - Check:
@@ -483,6 +578,36 @@ docker desktop restart
 - GPX import pipeline
 - S3/R2 media storage for production
 - Pagination and clustering at larger scale
+
+## 15.1) Private Beta / Production Path
+
+Recommended first production stack for a trusted-friends beta:
+
+- Render web service using `render.yaml`
+- Render Postgres with PostGIS enabled
+- Cloudflare R2 for production media uploads
+
+Production checklist:
+
+1. Set `DEBUG=0`, `ALLOWED_HOSTS`, and `CSRF_TRUSTED_ORIGINS`.
+2. Configure `DATABASE_URL` from your hosted Postgres.
+3. Configure R2 and set `USE_S3_MEDIA=1`.
+4. Run:
+
+```powershell
+docker compose run --rm web python manage.py migrate
+docker compose run --rm web python manage.py check --deploy
+```
+
+5. Create a superuser and a small set of invited accounts.
+6. Verify:
+   - login
+   - map load
+   - trash report
+   - mark cleaned with photo
+   - route logging
+   - feedback submission
+   - `/healthz`
 
 ## 16) GitHub Repo Setup
 

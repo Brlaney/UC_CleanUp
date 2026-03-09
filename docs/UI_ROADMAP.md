@@ -43,41 +43,37 @@ Goal: decide whether to keep custom CSS or adopt a framework for faster UI itera
 - Pilot framework in one new page (timeline feed) before broad migration.
 - Add component inventory page (`/ui-kit/`) for consistency checks.
 
-## 3) Timeline / Updates Feed Concept
+## 3) Activity / Updates Feed Expansion
 
 ## Problem
-Current UX is map-first. Users need an event-ordered activity feed to quickly review recent cleanup actions and jump to map context.
+Current UX now includes a basic updates feed, but it remains map-first. Users still need a richer event-ordered activity experience with stronger filtering, focus states, and moderation hooks.
 
 ## MVP Scope
 
 ### Data Model
-- Introduce `ActivityLog` model (or materialized feed query) with:
-  - `id`
-  - `activity_type` (`TRASH_REPORTED`, `TRASH_CLEANED`, `ROUTE_LOGGED`, `PROOF_ADDED`)
-  - `actor` (user FK)
-  - `trash_site` nullable FK
-  - `route_cleanup` nullable FK
-  - `proof` nullable FK
-  - `created_at`
-  - optional denormalized summary text
+- Extend the existing `ActivityLog` model with:
+  - richer summaries
+  - optional map viewport snapshot / focus metadata
+  - optional denormalized county / campaign tags
 
 ### API Endpoints
-- `GET /api/activity/?page=1&page_size=25&days=7`
-  - newest-first list with enough geometry reference for map focus.
-- `GET /api/activity/<id>/`
-  - full detail payload for selected entry.
+- Extend `GET /api/activity/?page=1&page_size=25&days=7`
+  - add richer filters (`type`, `user`, `county`)
+- Add `GET /api/activity/<id>/`
+  - full detail payload for selected entry
 
 ### UI Behavior
-- New page `/updates/` with:
-  - chronological cards
+- Evolve existing `/updates/` page with:
   - filters (type/date/user)
+  - stronger time-grouping and summaries
+  - visual state for unresolved / high-priority changes
   - click card -> navigate to `/map/` and focus selected feature
 - Optional split-view mode:
   - feed on left, mini-map on right
   - selecting entry pans/highlights target geometry
 
 ### MVP Done Criteria
-- Feed shows last N cleanup/report events.
+- Feed supports useful filtering beyond newest-first.
 - Clicking event focuses correct map object.
 - Data remains auth-protected and scoped to app users.
 

@@ -4,7 +4,12 @@ from . import views
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("healthz", views.healthz, name="healthz"),
     path("map/", views.map_view, name="map"),
+    path("updates/", views.updates_view, name="updates"),
+    path("impact/", views.impact_view, name="impact"),
+    path("api/activity/", views.activity_api, name="api_activity"),
+    path("api/feedback/", views.feedback_create_api, name="api_feedback_create"),
     path("api/features/", views.features_api, name="api_features"),
     path("api/trash-sites/", views.trash_site_create_api, name="api_trash_site_create"),
     path("api/trash-sites/<uuid:site_id>/", views.trash_site_update_api, name="api_trash_site_update"),

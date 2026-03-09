@@ -8,10 +8,10 @@ Future ideas and design planning are tracked separately in `docs/UI_ROADMAP.md`.
 ### F-001 Authenticated Access Control
 - Django auth is enabled at `/accounts/login/`.
 - Root path `/` redirects to `/map/`.
-- Map and API endpoints are protected with `@login_required`.
+- Map, updates, impact, and private API endpoints are protected with `@login_required`.
 - Logout is available in the top bar.
 - Done when:
-  - Unauthenticated users are redirected to login for `/map/` and `/api/...`.
+  - Unauthenticated users are redirected to login for protected HTML routes and `/api/...`.
   - Authenticated users can access map and API.
 
 ### F-002 Map Initialization and Basemap UX
@@ -79,11 +79,46 @@ Future ideas and design planning are tracked separately in `docs/UI_ROADMAP.md`.
   - Route click shows detail and distance value.
 
 ### F-010 Admin Management (Including Delete)
-- Django admin is enabled for `TrashSite`, `RouteCleanup`, `CleanupProof`, and `Photo`.
+- Django admin is enabled for `TrashSite`, `RouteCleanup`, `CleanupProof`, `Photo`, `Profile`, `ActivityLog`, and `FeedbackEntry`.
 - GIS admin is used for spatial models.
 - Admin supports edit/search/filter and delete operations.
 - Done when:
   - Admin user can create/edit/delete records and map reflects deletions.
+
+### F-019 Activity Updates Feed
+- `/updates/` shows recent activity across reports, cleanup proofs, and route logging.
+- `GET /api/activity/` returns paginated activity entries with map focus metadata.
+- Activity cards link back to `/map/` with `focus_type` and `focus_id` query parameters.
+- Done when:
+  - Logged-in user can open `/updates/`, see recent events, and jump to the relevant map feature.
+
+### F-020 Personal Impact Dashboard
+- `/impact/` shows contribution totals for the current user.
+- Totals include:
+  - reported sites
+  - cleaned sites
+  - bags collected
+  - logged routes
+  - route miles
+  - minutes logged
+- Done when:
+  - Logged-in user can open `/impact/` and see their contribution summary.
+
+### F-021 In-App Feedback Reporting
+- Authenticated users can submit `BUG`, `REQUEST`, or `GENERAL` feedback from the top bar modal.
+- Feedback is stored in `FeedbackEntry` and managed through Django admin.
+- Submitted feedback includes free-text message and current page URL.
+- Done when:
+  - Logged-in user can send feedback without leaving the app and admins can review it later.
+
+### F-022 Role-Aware TrashSite Permissions
+- `Profile` records support `MEMBER` and `ADMIN` roles.
+- TrashSite PATCH editing is limited to creator or admin.
+- Setting TrashSite status to `INVALID` is limited to admins.
+- Marking a site cleaned remains available to authenticated users unless the site is already `INVALID`.
+- Done when:
+  - Unauthorized edits are rejected with 403 JSON errors.
+  - Admin-only invalidation is enforced.
 
 ## Data + Geometry Rules
 
@@ -115,7 +150,10 @@ Future ideas and design planning are tracked separately in `docs/UI_ROADMAP.md`.
 
 ### F-014 Authenticated API Surface
 - Implemented JSON routes:
+  - `GET /healthz`
   - `GET /api/features/`
+  - `GET /api/activity/`
+  - `POST /api/feedback/`
   - `POST /api/trash-sites/`
   - `GET|PATCH /api/trash-sites/<id>/`
   - `GET /api/trash-sites/<id>/detail/`
@@ -139,24 +177,36 @@ Future ideas and design planning are tracked separately in `docs/UI_ROADMAP.md`.
 - `docker-compose.yml` includes:
   - `db` (`postgis/postgis:16-3.4`)
   - `web` (Django app image with GDAL/GEOS/PROJ installed)
-- Entry point waits for DB, runs migrations, then starts server.
+- Entry point waits for DB, runs migrations, optionally collects static files, then starts:
+  - Django `runserver` in debug
+  - Gunicorn when `DEBUG=0`
 - Host web port is configurable with `WEB_PORT`.
 - Done when:
   - `docker compose up --build -d` boots healthy DB + running web app.
 
 ### F-017 Local Python Runtime + Config
-- Settings are environment-driven for DB/auth/static/media.
+- Settings are environment-driven for DB/auth/static/media/security/storage.
 - Local media served in DEBUG mode.
+- Object storage is supported via S3-compatible settings for production media.
+- Database config supports `DATABASE_URL` as well as individual `POSTGRES_*` variables.
 - Django test suite exists via `python manage.py test`.
 - No pytest configuration is present in the repo.
 - Done when:
   - Local run works with env vars and `manage.py test` executes.
 
+### F-023 Visual Screenshot Capture Workflow
+- Playwright can capture a repeatable screenshot gallery for desktop and mobile form factors.
+- `python manage.py seed_screenshot_demo` creates deterministic demo records and a dedicated screenshot user.
+- `scripts/capture-screenshots.ps1` starts the Docker stack, runs migrations, seeds demo data, and writes screenshots to `artifacts/screenshots/`.
+- Done when:
+  - One command produces current screenshots for desktop and phone-sized layouts without manual browser resizing.
+
 ## Observability / Troubleshooting
 
 ### F-018 Runtime Diagnostics and Error Visibility
-- Container startup logs show DB wait, migration run, and server start.
+- Container startup logs show DB wait, migration run, static collection, and server start.
 - API errors are explicit JSON (`{"error": ...}`).
 - Frontend surfaces request failures in alert dialogs or detail panel text.
+- `GET /healthz` reports basic application/database readiness.
 - Done when:
   - Failures are visible to developers/users without attaching a debugger.

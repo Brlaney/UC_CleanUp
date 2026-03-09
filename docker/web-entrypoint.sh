@@ -9,5 +9,19 @@ done
 echo "Applying migrations..."
 python manage.py migrate --noinput
 
-echo "Starting Django development server..."
-exec python manage.py runserver 0.0.0.0:8000
+if [ "${RUN_COLLECTSTATIC:-1}" = "1" ]; then
+  echo "Collecting static files..."
+  python manage.py collectstatic --noinput
+fi
+
+if [ "${DEBUG:-1}" = "1" ]; then
+  echo "Starting Django development server..."
+  exec python manage.py runserver 0.0.0.0:8000
+fi
+
+echo "Starting Gunicorn..."
+exec gunicorn putnam_trashmap.wsgi:application \
+  --bind 0.0.0.0:8000 \
+  --workers "${GUNICORN_WORKERS:-3}" \
+  --access-logfile - \
+  --error-logfile -

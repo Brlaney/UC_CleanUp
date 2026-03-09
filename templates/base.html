@@ -14,20 +14,75 @@
 </head>
 <body>
 <header class="topbar">
-    <div class="brand">Upper Cumberland CleanUp</div>
-    {% if user.is_authenticated %}
-        <div class="user-actions">
-            <span>{{ user.username }}</span>
-            <form method="post" action="{% url 'logout' %}">
-                {% csrf_token %}
-                <button type="submit">Log out</button>
-            </form>
+    <div class="topbar-inner">
+        <div class="topbar-left">
+            <a class="brand" href="{% url 'map' %}">
+                <span class="brand-kicker">Upper Cumberland Region</span>
+                <span class="brand-title">Upper Cumberland CleanUp</span>
+            </a>
+            {% if user.is_authenticated %}
+                <nav class="topnav" aria-label="Primary">
+                    <a class="topnav-link{% if request.resolver_match.url_name == 'map' %} is-active{% endif %}" href="{% url 'map' %}"{% if request.resolver_match.url_name == 'map' %} aria-current="page"{% endif %}>Map</a>
+                    <a class="topnav-link{% if request.resolver_match.url_name == 'updates' %} is-active{% endif %}" href="{% url 'updates' %}"{% if request.resolver_match.url_name == 'updates' %} aria-current="page"{% endif %}>Updates</a>
+                    <a class="topnav-link{% if request.resolver_match.url_name == 'impact' %} is-active{% endif %}" href="{% url 'impact' %}"{% if request.resolver_match.url_name == 'impact' %} aria-current="page"{% endif %}>My Impact</a>
+                    {% if user.is_staff or user.is_superuser %}
+                        <a class="topnav-link" href="{% url 'admin:index' %}">Admin</a>
+                    {% endif %}
+                </nav>
+            {% endif %}
         </div>
-    {% endif %}
+        {% if user.is_authenticated %}
+            <div class="user-actions">
+                <span class="user-pill">{{ user.username }}</span>
+                <button id="feedback-open-btn" class="btn btn-secondary btn-compact" type="button">Report Issue / Request</button>
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button class="btn btn-ghost btn-compact" type="submit">Log out</button>
+                </form>
+            </div>
+        {% endif %}
+    </div>
 </header>
-<main class="page">
+<main class="page{% if request.resolver_match.url_name %} page--{{ request.resolver_match.url_name }}{% endif %}">
     {% block content %}{% endblock %}
 </main>
+{% if user.is_authenticated %}
+    <div class="modal hidden" id="feedback-modal">
+        <div class="modal-card modal-card--narrow">
+            <h2>Report an Issue or Request</h2>
+            <p class="modal-copy">Share bugs, confusing moments, or feature requests without leaving the app.</p>
+            <form id="feedback-form">
+                {% csrf_token %}
+                <label>Type
+                    <select name="feedback_type">
+                        <option value="BUG">Bug</option>
+                        <option value="REQUEST">Request</option>
+                        <option value="GENERAL" selected>General</option>
+                    </select>
+                </label>
+                <label>Message
+                    <textarea name="message" rows="4" placeholder="What happened, what you expected, or what you want changed."></textarea>
+                </label>
+                <input type="hidden" name="page_url" id="feedback-page-url">
+                <div class="button-row feedback-actions">
+                    <button class="btn btn-primary" type="submit">Send Feedback</button>
+                    <button class="btn btn-subtle" type="button" data-close-modal="feedback-modal">Cancel</button>
+                </div>
+                <div id="feedback-status" class="feedback-status" aria-live="polite"></div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+{% if user.is_authenticated %}
+    <script>
+        window.APP_BASE_CONFIG = {
+            endpoints: {
+                feedbackCreate: "{% url 'api_feedback_create' %}"
+            }
+        };
+    </script>
+    <script src="{% static 'js/base.js' %}"></script>
+{% endif %}
 {% block scripts %}{% endblock %}
 </body>
 </html>

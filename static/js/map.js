@@ -35,7 +35,7 @@
   );
   const customCountyListWrap = document.getElementById("custom-county-list-wrap");
   const drawHandler = new L.Draw.Polyline(map, {
-    shapeOptions: { color: MAP_COLORS.routeDraw, weight: 4, opacity: 0.9 },
+    shapeOptions: { color: MAP_COLORS.routeDraw, weight: 5, opacity: 0.92 },
   });
 
   let reportMode = false;
@@ -253,7 +253,7 @@
       }
       syncCustomCountyListVisibility();
       syncCountyBoundaryVisibility().catch((error) => {
-        setDetailHtml(`<p>${escapeHtml(error.message)}</p>`);
+        setDetailHtml(renderDetailNotice("Overlay error", error.message));
       });
     });
   }
@@ -264,21 +264,21 @@
       }
       syncCustomCountyListVisibility();
       syncCountyBoundaryVisibility().catch((error) => {
-        setDetailHtml(`<p>${escapeHtml(error.message)}</p>`);
+        setDetailHtml(renderDetailNotice("Overlay error", error.message));
       });
     });
   }
   if (overlayPutnamToggle) {
     overlayPutnamToggle.addEventListener("change", function () {
       syncCountyBoundaryVisibility().catch((error) => {
-        setDetailHtml(`<p>${escapeHtml(error.message)}</p>`);
+        setDetailHtml(renderDetailNotice("Overlay error", error.message));
       });
     });
   }
   countyBoundaryCheckboxes.forEach((checkbox) => {
     checkbox.addEventListener("change", function () {
       syncCountyBoundaryVisibility().catch((error) => {
-        setDetailHtml(`<p>${escapeHtml(error.message)}</p>`);
+        setDetailHtml(renderDetailNotice("Overlay error", error.message));
       });
     });
   });
@@ -341,25 +341,82 @@
       .replaceAll("'", "&#39;");
   }
 
+  function titleCaseToken(value) {
+    if (!value) {
+      return "";
+    }
+    return String(value)
+      .toLowerCase()
+      .split("_")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+  }
+
+  function tokenClass(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replaceAll("_", "-");
+  }
+
+  function formatDateTime(value) {
+    if (!value) {
+      return "n/a";
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return String(value);
+    }
+    return parsed.toLocaleString();
+  }
+
+  function renderDetailNotice(title, message) {
+    return `
+      <div class="detail-empty-state">
+        <span class="detail-empty-kicker">${escapeHtml(title)}</span>
+        <h3>${escapeHtml(message)}</h3>
+      </div>
+    `;
+  }
+
+  function renderDetailBadge(label, modifierClass) {
+    return `<span class="detail-badge ${modifierClass}">${escapeHtml(label)}</span>`;
+  }
+
+  function renderMetaItem(label, value) {
+    return `
+      <div class="detail-meta-item">
+        <dt>${escapeHtml(label)}</dt>
+        <dd>${escapeHtml(value)}</dd>
+      </div>
+    `;
+  }
+
   function renderProofs(proofs) {
     if (!proofs || proofs.length === 0) {
-      return "<p>No proofs yet.</p>";
+      return '<div class="detail-inline-empty">No proof entries yet.</div>';
     }
-    return proofs
-      .map((proof) => {
-        const photos = (proof.photos || [])
-          .map((url) => `<img src="${url}" alt="proof photo" loading="lazy">`)
-          .join("");
-        return `
-          <div class="proof">
-            <p><strong>Bags:</strong> ${proof.bags_count}</p>
-            <p><strong>Note:</strong> ${escapeHtml(proof.note || "n/a")}</p>
-            <p><small>By ${escapeHtml(proof.created_by)} at ${new Date(proof.created_at).toLocaleString()}</small></p>
-            <div>${photos}</div>
-          </div>
-        `;
-      })
-      .join("");
+    return `
+      <div class="proof-list">
+        ${proofs
+          .map((proof) => {
+            const photos = (proof.photos || [])
+              .map((url) => `<img src="${url}" alt="proof photo" loading="lazy">`)
+              .join("");
+            return `
+              <article class="proof-card">
+                <div class="proof-card-top">
+                  <span class="proof-bags">${escapeHtml(String(proof.bags_count))} bags</span>
+                  <span class="proof-meta">${escapeHtml(formatDateTime(proof.created_at))}</span>
+                </div>
+                <p class="proof-note">${escapeHtml(proof.note || "No note added.")}</p>
+                <p class="proof-meta">By ${escapeHtml(proof.created_by)}</p>
+                ${photos ? `<div class="proof-photo-grid">${photos}</div>` : ""}
+              </article>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
   }
 
   async function fetchJson(url, options) {
@@ -379,23 +436,71 @@
     document.getElementById("detail-content").innerHTML = html;
   }
 
+  function scrollDetailIntoView() {
+    const detailContent = document.getElementById("detail-content");
+    if (detailContent) {
+      detailContent.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  function getFocusRequest() {
+    const params = new URLSearchParams(window.location.search);
+    const focusType = params.get("focus_type");
+    const focusId = params.get("focus_id");
+    if (!focusType || !focusId) {
+      return null;
+    }
+    return { focusType, focusId };
+  }
+
   async function showTrashSiteDetail(siteId) {
     try {
       const site = await fetchJson(`${config.endpoints.trashUpdateBase}${siteId}/detail/`);
+      const badges = [renderDetailBadge(titleCaseToken(site.status), `detail-badge--${tokenClass(site.status)}`)];
+      if (site.severity) {
+        badges.push(
+          renderDetailBadge(
+            `${titleCaseToken(site.severity)} severity`,
+            `detail-badge--${tokenClass(site.severity)}`
+          )
+        );
+      }
+      if (site.hazard_flag) {
+        badges.push(renderDetailBadge("Hazard flagged", "detail-badge--hazard"));
+      }
       const cleanedButton =
-        site.status !== "CLEANED"
-          ? `<button id="detail-mark-cleaned-btn" type="button" data-site-id="${site.id}">Mark Cleaned</button>`
+        site.status !== "CLEANED" && site.permissions && site.permissions.can_mark_cleaned
+          ? `<button class="btn btn-secondary" id="detail-mark-cleaned-btn" type="button" data-site-id="${site.id}">Mark Cleaned</button>`
           : "";
       setDetailHtml(`
-        <h3>${escapeHtml(site.title || "Trash Site")}</h3>
-        <p><strong>Status:</strong> ${escapeHtml(site.status)}</p>
-        <p><strong>Severity:</strong> ${escapeHtml(site.severity || "n/a")}</p>
-        <p><strong>Hazard:</strong> ${site.hazard_flag ? "Yes" : "No"}</p>
-        <p>${escapeHtml(site.description || "")}</p>
-        ${cleanedButton}
-        <h4>Cleanup Proofs</h4>
-        ${renderProofs(site.proofs)}
+        <div class="detail-panel">
+          <div class="detail-panel-header">
+            <div>
+              <span class="detail-kicker">Trash Site</span>
+              <h3>${escapeHtml(site.title || "Trash Site")}</h3>
+            </div>
+            <div class="detail-badge-row">${badges.join("")}</div>
+          </div>
+          <dl class="detail-meta-grid">
+            ${renderMetaItem("Reported by", site.created_by)}
+            ${renderMetaItem("Created", formatDateTime(site.created_at))}
+            ${renderMetaItem("Last updated", formatDateTime(site.updated_at))}
+            ${renderMetaItem("Cleaned at", site.cleaned_at ? formatDateTime(site.cleaned_at) : "Not yet cleaned")}
+          </dl>
+          <div class="detail-section">
+            <h4>Description</h4>
+            <p class="detail-copy${site.description ? "" : " detail-copy--muted"}">${escapeHtml(
+              site.description || "No description added yet."
+            )}</p>
+          </div>
+          ${cleanedButton ? `<div class="detail-action-row">${cleanedButton}</div>` : ""}
+          <div class="detail-section">
+            <h4>Cleanup Proofs</h4>
+            ${renderProofs(site.proofs)}
+          </div>
+        </div>
       `);
+      scrollDetailIntoView();
       const cleanedBtn = document.getElementById("detail-mark-cleaned-btn");
       if (cleanedBtn) {
         cleanedBtn.addEventListener("click", function () {
@@ -404,37 +509,63 @@
         });
       }
     } catch (error) {
-      setDetailHtml(`<p>${escapeHtml(error.message)}</p>`);
+      setDetailHtml(renderDetailNotice("Unable to load details", error.message));
     }
   }
 
   async function showRouteDetail(routeId) {
     try {
       const route = await fetchJson(`/api/route-cleanups/${routeId}/detail/`);
+      const badges = [
+        renderDetailBadge(titleCaseToken(route.status), `detail-badge--${tokenClass(route.status)}`),
+      ];
       setDetailHtml(`
-        <h3>Cleanup Route</h3>
-        <p><strong>Status:</strong> ${escapeHtml(route.status)}</p>
-        <p><strong>Distance:</strong> ${Number(route.distance_miles).toFixed(2)} miles</p>
-        <p><strong>Time:</strong> ${route.time_spent_minutes || "n/a"} minutes</p>
-        <p>${escapeHtml(route.notes || "")}</p>
-        <h4>Proofs</h4>
-        ${renderProofs(route.proofs)}
+        <div class="detail-panel">
+          <div class="detail-panel-header">
+            <div>
+              <span class="detail-kicker">Cleanup Route</span>
+              <h3>Cleanup Route</h3>
+            </div>
+            <div class="detail-badge-row">${badges.join("")}</div>
+          </div>
+          <dl class="detail-meta-grid">
+            ${renderMetaItem("Distance", `${Number(route.distance_miles).toFixed(2)} miles`)}
+            ${renderMetaItem("Time", route.time_spent_minutes ? `${route.time_spent_minutes} minutes` : "n/a")}
+            ${renderMetaItem("Logged by", route.created_by)}
+            ${renderMetaItem("Created", formatDateTime(route.created_at))}
+          </dl>
+          <div class="detail-section">
+            <h4>Route Notes</h4>
+            <p class="detail-copy${route.notes ? "" : " detail-copy--muted"}">${escapeHtml(
+              route.notes || "No notes added for this route."
+            )}</p>
+          </div>
+          <div class="detail-section">
+            <h4>Proofs</h4>
+            ${renderProofs(route.proofs)}
+          </div>
+        </div>
       `);
+      scrollDetailIntoView();
     } catch (error) {
-      setDetailHtml(`<p>${escapeHtml(error.message)}</p>`);
+      setDetailHtml(renderDetailNotice("Unable to load details", error.message));
     }
   }
 
   function buildTrashPopup(siteProps) {
     const title = escapeHtml(siteProps.title || "Trash Site");
     const cleanedButton =
-      siteProps.status !== "CLEANED"
-        ? `<button type="button" class="popup-clean-btn" data-site-id="${siteProps.id}">Mark Cleaned</button>`
+      siteProps.status !== "CLEANED" && siteProps.can_mark_cleaned
+        ? `<button type="button" class="btn btn-secondary btn-compact popup-clean-btn" data-site-id="${siteProps.id}">Mark Cleaned</button>`
         : "";
     return `
-      <strong>${title}</strong><br>
-      <small>Status: ${escapeHtml(siteProps.status)}</small><br>
-      ${cleanedButton}
+      <div class="map-popup">
+        <strong>${title}</strong>
+        <span class="popup-status popup-status--${tokenClass(siteProps.status)}">${escapeHtml(
+          titleCaseToken(siteProps.status)
+        )}</span>
+        ${cleanedButton}
+      </div>
     `;
   }
 
@@ -468,11 +599,11 @@
         const marker = L.circleMarker(
           [feature.geometry.coordinates[1], feature.geometry.coordinates[0]],
           {
-            radius: 7,
-            color: statusColor(feature.properties.status),
+            radius: 8,
+            color: "#ffffff",
             fillColor: statusColor(feature.properties.status),
-            fillOpacity: 0.9,
-            weight: 1.5,
+            fillOpacity: 0.95,
+            weight: 2.5,
           }
         );
         marker.bindPopup(buildTrashPopup(feature.properties));
@@ -484,10 +615,15 @@
       }
 
       if (kind === "route_cleanup") {
-        const polyline = L.polyline(
-          feature.geometry.coordinates.map((coord) => [coord[1], coord[0]]),
-          { color: MAP_COLORS.route, weight: 4, opacity: 0.85 }
-        );
+        const routePoints = feature.geometry.coordinates.map((coord) => [coord[1], coord[0]]);
+        const routeGroup = L.layerGroup();
+        const polyline = L.polyline(routePoints, {
+          color: MAP_COLORS.route,
+          weight: 5,
+          opacity: 0.9,
+          lineCap: "round",
+          lineJoin: "round",
+        });
         polyline.on("click", function () {
           showRouteDetail(feature.properties.id);
         });
@@ -496,9 +632,57 @@
             2
           )} miles</small>`
         );
-        polyline.addTo(routeLayer);
+        polyline.addTo(routeGroup);
+
+        if (routePoints.length >= 2) {
+          const startMarker = L.circleMarker(routePoints[0], {
+            radius: 5.5,
+            color: "#ffffff",
+            weight: 2,
+            fillColor: MAP_COLORS.route,
+            fillOpacity: 1,
+          }).bindTooltip("Start", { direction: "top", opacity: 0.92 });
+          const endMarker = L.circleMarker(routePoints[routePoints.length - 1], {
+            radius: 5.5,
+            color: "#ffffff",
+            weight: 2,
+            fillColor: MAP_COLORS.cleaned,
+            fillOpacity: 1,
+          }).bindTooltip("End", { direction: "top", opacity: 0.92 });
+          [startMarker, endMarker].forEach((endpointMarker) => {
+            endpointMarker.on("click", function () {
+              showRouteDetail(feature.properties.id);
+            });
+            endpointMarker.addTo(routeGroup);
+          });
+        }
+
+        routeGroup.addTo(routeLayer);
       }
     });
+  }
+
+  async function focusRequestedFeature() {
+    const focusRequest = getFocusRequest();
+    if (!focusRequest) {
+      return;
+    }
+
+    if (focusRequest.focusType === "trash_site") {
+      const site = await fetchJson(`${config.endpoints.trashUpdateBase}${focusRequest.focusId}/detail/`);
+      map.setView([site.coordinates[1], site.coordinates[0]], 15);
+      await loadFeatures();
+      await showTrashSiteDetail(focusRequest.focusId);
+      return;
+    }
+
+    if (focusRequest.focusType === "route_cleanup") {
+      const route = await fetchJson(`/api/route-cleanups/${focusRequest.focusId}/detail/`);
+      const bounds = L.latLngBounds(route.coordinates.map((coord) => [coord[1], coord[0]]));
+      map.fitBounds(bounds.pad(0.2));
+      await loadFeatures();
+      await showRouteDetail(focusRequest.focusId);
+    }
   }
 
   async function handleTrashCreate(event) {
@@ -629,15 +813,19 @@
 
   map.on("moveend zoomend", function () {
     loadFeatures().catch((error) => {
-      setDetailHtml(`<p>${escapeHtml(error.message)}</p>`);
+      setDetailHtml(renderDetailNotice("Map error", error.message));
     });
   });
 
   syncCustomCountyListVisibility();
   syncCountyBoundaryVisibility().catch((error) => {
-    setDetailHtml(`<p>${escapeHtml(error.message)}</p>`);
+    setDetailHtml(renderDetailNotice("Overlay error", error.message));
   });
-  loadFeatures().catch((error) => {
-    setDetailHtml(`<p>${escapeHtml(error.message)}</p>`);
-  });
+  loadFeatures()
+    .then(function () {
+      return focusRequestedFeature();
+    })
+    .catch((error) => {
+      setDetailHtml(renderDetailNotice("Map error", error.message));
+    });
 })();

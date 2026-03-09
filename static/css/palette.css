@@ -1,36 +1,82 @@
 :root {
-  /* Global surface + text */
-  --color-text-primary: #0f1f2e;
-  --color-bg-page: #f3f7fb;
+  --color-text-primary: #17324b;
+  --color-text-secondary: #4d667c;
+  --color-text-muted: #6d8498;
+  --color-text-inverse: #f8fbff;
 
-  /* Top bar */
-  --color-topbar-bg: #08457E;
-  --color-topbar-text: #f5faff;
-
-  /* Buttons */
-  --color-btn-primary-bg: #0E5EA8;
-  --color-btn-primary-bg-hover: #08457E;
-  --color-btn-primary-text: #ffffff;
-
-  /* Cards + panels */
+  --color-bg-page: #eef4f7;
+  --color-bg-page-accent: #e2ecf2;
   --color-surface: #ffffff;
-  --color-surface-soft: #f7fafc;
-  --color-border-soft: #dbe6ef;
-  --color-border-medium: #cddae6;
-  --color-border-input: #bccddc;
+  --color-surface-soft: #f6fafc;
+  --color-surface-muted: #edf4f8;
+  --color-surface-tint: rgba(10, 93, 146, 0.08);
+
+  --color-topbar-bg: linear-gradient(135deg, #0a4b80 0%, #0d5e97 54%, #1d755d 100%);
+  --color-topbar-text: #f5fbff;
+
+  --color-border-soft: #d7e3eb;
+  --color-border-medium: #bfd0dc;
+  --color-border-strong: #9db4c5;
+  --color-border-input: #b8cad8;
   --color-border-auth: #d6e2ee;
 
-  /* Overlay */
-  --color-overlay: rgba(4, 22, 40, 0.50);
+  --color-btn-primary-bg: #0d5d95;
+  --color-btn-primary-bg-hover: #094b77;
+  --color-btn-primary-text: #ffffff;
+  --color-btn-secondary-bg: #1f7a5c;
+  --color-btn-secondary-bg-hover: #175f48;
+  --color-btn-secondary-text: #ffffff;
+  --color-btn-subtle-bg: #e6eff6;
+  --color-btn-subtle-bg-hover: #d7e4ef;
+  --color-btn-subtle-text: #0d507f;
+  --color-btn-ghost-bg: rgba(255, 255, 255, 0.1);
+  --color-btn-ghost-bg-hover: rgba(255, 255, 255, 0.18);
+  --color-btn-ghost-border: rgba(255, 255, 255, 0.22);
+  --color-btn-ghost-text: #ffffff;
 
-  /* Map symbology */
-  --map-marker-pending: #d8572a;
-  --map-marker-in-progress: #d4b018;
-  --map-marker-cleaned: #2f9e5c;
-  --map-route-color: #2b6cb0;
-  --map-route-draw-color: #3b82d6;
-  --map-county-boundary: #1f5f96;
-  --map-county-boundary-fill: rgba(31, 95, 150, 0.12);
+  --color-status-pending-bg: #fff0e6;
+  --color-status-pending-text: #b45422;
+  --color-status-in-progress-bg: #fff5d7;
+  --color-status-in-progress-text: #9b7d12;
+  --color-status-cleaned-bg: #e7f6ee;
+  --color-status-cleaned-text: #1e7b48;
+  --color-status-invalid-bg: #fbe6e9;
+  --color-status-invalid-text: #b6364d;
+  --color-severity-light-bg: #edf7ff;
+  --color-severity-light-text: #216ea3;
+  --color-severity-medium-bg: #eef4d7;
+  --color-severity-medium-text: #70891d;
+  --color-severity-heavy-bg: #fff0db;
+  --color-severity-heavy-text: #b35f18;
+  --color-hazard-bg: #fbe6e9;
+  --color-hazard-text: #a7364a;
+
+  --color-overlay: rgba(4, 22, 40, 0.55);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 2.75rem;
+
+  --radius-sm: 0.55rem;
+  --radius-md: 0.95rem;
+  --radius-lg: 1.35rem;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 10px 24px rgba(12, 42, 66, 0.06);
+  --shadow-md: 0 18px 42px rgba(12, 42, 66, 0.1);
+  --shadow-lg: 0 28px 60px rgba(12, 42, 66, 0.14);
+
+  --map-marker-pending: #db5a26;
+  --map-marker-in-progress: #ccb10f;
+  --map-marker-cleaned: #1f944f;
+  --map-route-color: #2967ad;
+  --map-route-draw-color: #2474cc;
+  --map-county-boundary: #0e5ea8;
+  --map-county-boundary-fill: rgba(14, 94, 168, 0.1);
   --map-outside-mask-color: #081421;
-  --map-outside-mask-opacity: 0.62;
+  --map-outside-mask-opacity: 0.58;
 }

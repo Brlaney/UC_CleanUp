@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="content-shell">
+    <div class="page-intro">
+        <span class="section-kicker">Volunteer Dashboard</span>
+        <h1>My Impact</h1>
+        <p>Your current beta contribution totals across reporting, cleanup proofs, and route logging.</p>
+    </div>
+
+    <div class="impact-grid">
+        <article class="stat-card stat-card--reports">
+            <span class="stat-label">Reports created</span>
+            <strong>{{ stats.reported_sites }}</strong>
+            <small>Trash sites added to the shared map.</small>
+        </article>
+        <article class="stat-card stat-card--cleaned">
+            <span class="stat-label">Sites cleaned</span>
+            <strong>{{ stats.cleaned_sites }}</strong>
+            <small>Locations confirmed cleaned with proof.</small>
+        </article>
+        <article class="stat-card stat-card--bags">
+            <span class="stat-label">Bags collected</span>
+            <strong>{{ stats.bags_collected }}</strong>
+            <small>Bagged litter recorded in cleanup proof.</small>
+        </article>
+        <article class="stat-card stat-card--routes">
+            <span class="stat-label">Routes logged</span>
+            <strong>{{ stats.logged_routes }}</strong>
+            <small>Cleanup routes added from the field map.</small>
+        </article>
+        <article class="stat-card stat-card--miles">
+            <span class="stat-label">Route miles</span>
+            <strong>{{ stats.route_miles|floatformat:2 }}</strong>
+            <small>Total tracked cleanup miles.</small>
+        </article>
+        <article class="stat-card stat-card--minutes">
+            <span class="stat-label">Minutes logged</span>
+            <strong>{{ stats.time_spent_minutes }}</strong>
+            <small>Volunteer time captured in route logs.</small>
+        </article>
+    </div>
+
+    <section class="impact-footnote">
+        <h2>Why it matters</h2>
+        <p>Every report, proof, and logged mile helps build a clearer cleanup picture for volunteers, civic partners, and future regional work.</p>
+    </section>
+</section>
+{% endblock %}

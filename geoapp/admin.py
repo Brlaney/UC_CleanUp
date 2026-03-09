@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.gis.admin import GISModelAdmin
 
-from .models import CleanupProof, Photo, RouteCleanup, TrashSite
+from .models import ActivityLog, CleanupProof, FeedbackEntry, Photo, Profile, RouteCleanup, TrashSite
 
 
 class PhotoInline(admin.TabularInline):
@@ -38,3 +38,29 @@ class RouteCleanupAdmin(GISModelAdmin):
 class PhotoAdmin(admin.ModelAdmin):
     list_display = ("id", "proof", "created_at")
     autocomplete_fields = ("proof",)
+
+
+@admin.register(Profile)
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ("user", "role", "created_at", "updated_at")
+    list_filter = ("role",)
+    search_fields = ("user__username", "user__email")
+    autocomplete_fields = ("user",)
+
+
+@admin.register(ActivityLog)
+class ActivityLogAdmin(admin.ModelAdmin):
+    list_display = ("activity_type", "actor", "trash_site", "route_cleanup", "created_at")
+    list_filter = ("activity_type",)
+    search_fields = ("summary", "actor__username")
+    autocomplete_fields = ("actor", "trash_site", "route_cleanup", "proof")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(FeedbackEntry)
+class FeedbackEntryAdmin(admin.ModelAdmin):
+    list_display = ("feedback_type", "status", "created_by", "created_at")
+    list_filter = ("feedback_type", "status")
+    search_fields = ("message", "created_by__username", "page_url")
+    autocomplete_fields = ("created_by",)
+    readonly_fields = ("created_at", "updated_at")

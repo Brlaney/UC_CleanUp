@@ -223,6 +223,19 @@ Expected:
 - Local server starts and app is reachable.
 - Django test suite runs with no import/runtime errors.
 
+## MT-023 Visual Screenshot Capture Workflow
+Related feature: `F-023`
+
+Steps:
+1. Run `powershell -ExecutionPolicy Bypass -File scripts/capture-screenshots.ps1`.
+2. Wait for the script to finish Docker startup, migration, seed, and Playwright capture.
+3. Open `artifacts/screenshots/desktop-wide/` and `artifacts/screenshots/iphone-14/`.
+4. Verify `map-overview.png`, `map-trash-focus.png`, `map-route-focus.png`, `updates.png`, and `impact.png` exist.
+
+Expected:
+- Screenshot folders are created for desktop and phone profiles.
+- Images show logged-in app pages without obvious broken rendering or blank map output.
+
 ## MT-018 Diagnostics and Error Visibility
 Related feature: `F-018`
 
@@ -235,3 +248,57 @@ Expected:
 - API returns readable JSON error.
 - UI shows failure signal (alert or detail text).
 - Logs capture request/response context for debugging.
+
+## MT-019 Activity Updates Feed
+Related feature: `F-019`
+
+Steps:
+1. Create a trash site.
+2. Mark a site cleaned.
+3. Log a cleanup route.
+4. Open `/updates/`.
+5. Click an `Open on map` link from one activity card.
+
+Expected:
+- Updates page shows recent events in newest-first order.
+- Clicking an entry opens `/map/` and focuses the related site or route.
+
+## MT-020 Personal Impact Dashboard
+Related feature: `F-020`
+
+Steps:
+1. Log in as a user with at least one report, cleanup proof, and route.
+2. Open `/impact/`.
+3. Compare displayed totals to known records in admin or recent actions.
+
+Expected:
+- Impact page shows totals for reports, cleanups, bags, routes, miles, and minutes.
+- Numbers are plausible for the current user only.
+
+## MT-021 In-App Feedback Submission
+Related feature: `F-021`
+
+Steps:
+1. Log in and open any authenticated page.
+2. Click `Report Issue / Request` in the top bar.
+3. Submit one `BUG` and one `REQUEST`.
+4. Open `/admin/` and inspect `Feedback entries`.
+
+Expected:
+- Feedback modal submits successfully.
+- Each entry stores type, message, user, and current page URL.
+- Admin can review feedback later.
+
+## MT-022 Role-Aware TrashSite Permissions
+Related feature: `F-022`
+
+Steps:
+1. Create a trash site as User A.
+2. Log in as User B and try to edit that site through the PATCH API.
+3. Log in as User A and try to set the site to `INVALID`.
+4. Log in as an admin-role user and set the site to `INVALID`.
+
+Expected:
+- User B receives a 403 when editing User A's site.
+- User A receives a 403 when attempting invalidation.
+- Admin-role user can invalidate the site successfully.

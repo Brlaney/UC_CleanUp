@@ -7,7 +7,8 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import CleanupProof, RouteCleanup, TrashSite
+from .models import ActivityLog, CleanupProof, FeedbackEntry, Profile, RouteCleanup, TrashSite
+from .services import build_user_impact_stats
 
 
 class AuthGateTests(TestCase):
@@ -320,3 +321,129 @@ class ApiValidationTests(TestCase):
         )
         self.assertGreaterEqual(response.status_code, 400)
         self.assertIn("error", response.json())
+
+
+class HealthAndFeedbackTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="feedback-user", password="pass12345")
+
+    def test_healthz_is_public_and_reports_ok(self):
+        response = self.client.get(reverse("healthz"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["ok"])
+
+    def test_feedback_submission_creates_entry(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("api_feedback_create"),
+            {
+                "feedback_type": FeedbackEntry.FeedbackType.BUG,
+                "message": "Map did not recenter after route save.",
+                "page_url": "/map/",
+            },
+        )
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()
+        self.assertEqual(payload["feedback_type"], FeedbackEntry.FeedbackType.BUG)
+        self.assertEqual(FeedbackEntry.objects.count(), 1)
+        entry = FeedbackEntry.objects.get()
+        self.assertEqual(entry.created_by, self.user)
+        self.assertEqual(entry.page_url, "/map/")
+
+
+class PermissionRoleTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.owner = user_model.objects.create_user(username="owner-user", password="pass12345")
+        self.other_user = user_model.objects.create_user(username="other-user", password="pass12345")
+        self.admin_user = user_model.objects.create_user(username="admin-user", password="pass12345")
+        self.admin_user.profile.role = Profile.Role.ADMIN
+        self.admin_user.profile.save(update_fields=["role"])
+        self.site = TrashSite.objects.create(
+            location=Point(-85.5016, 36.1627, srid=4326),
+            title="Owner site",
+            created_by=self.owner,
+        )
+
+    def test_non_owner_cannot_patch_other_users_site(self):
+        self.client.force_login(self.other_user)
+        response = self.client.patch(
+            reverse("api_trash_site_update", kwargs={"site_id": self.site.id}),
+            data=json.dumps({"title": "Unauthorized change"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("error", response.json())
+
+    def test_non_admin_cannot_invalidate_site(self):
+        self.client.force_login(self.owner)
+        response = self.client.patch(
+            reverse("api_trash_site_update", kwargs={"site_id": self.site.id}),
+            data=json.dumps({"status": TrashSite.Status.INVALID}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("error", response.json())
+
+    def test_admin_can_invalidate_site(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.patch(
+            reverse("api_trash_site_update", kwargs={"site_id": self.site.id}),
+            data=json.dumps({"status": TrashSite.Status.INVALID}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.site.refresh_from_db()
+        self.assertEqual(self.site.status, TrashSite.Status.INVALID)
+
+
+class ActivityAndImpactTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="activity-user", password="pass12345")
+        self.client.force_login(self.user)
+
+    def test_activity_log_and_impact_stats_cover_report_cleanup_and_route(self):
+        create_site_response = self.client.post(
+            reverse("api_trash_site_create"),
+            {
+                "lat": "36.1627",
+                "lng": "-85.5016",
+                "title": "Roadside litter",
+            },
+        )
+        self.assertEqual(create_site_response.status_code, 201)
+        site_id = create_site_response.json()["id"]
+
+        mark_cleaned_response = self.client.post(
+            reverse("api_trash_site_mark_cleaned", kwargs={"site_id": site_id}),
+            {"note": "Cleared", "bags_count": 3},
+        )
+        self.assertEqual(mark_cleaned_response.status_code, 200)
+
+        route_response = self.client.post(
+            reverse("api_route_cleanup_create"),
+            data=json.dumps(
+                {
+                    "coordinates": [[-85.5010, 36.1620], [-85.4980, 36.1630]],
+                    "notes": "Neighborhood cleanup",
+                    "time_spent_minutes": 25,
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(route_response.status_code, 201)
+
+        activity_response = self.client.get(reverse("api_activity"), {"page_size": "10"})
+        self.assertEqual(activity_response.status_code, 200)
+        activity_types = {item["activity_type"] for item in activity_response.json()["results"]}
+        self.assertIn(ActivityLog.ActivityType.TRASH_REPORTED, activity_types)
+        self.assertIn(ActivityLog.ActivityType.TRASH_CLEANED, activity_types)
+        self.assertIn(ActivityLog.ActivityType.ROUTE_LOGGED, activity_types)
+
+        stats = build_user_impact_stats(self.user)
+        self.assertEqual(stats["reported_sites"], 1)
+        self.assertEqual(stats["cleaned_sites"], 1)
+        self.assertEqual(stats["bags_collected"], 3)
+        self.assertEqual(stats["logged_routes"], 1)
+        self.assertGreater(stats["route_miles"], 0)
+        self.assertEqual(stats["time_spent_minutes"], 25)

@@ -2,13 +2,17 @@ import json
 from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.contrib.gis.geos import LineString, Point, Polygon
+from django.db import connection
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods
 
-from .models import CleanupProof, Photo, RouteCleanup, TrashSite
+from .models import ActivityLog, CleanupProof, FeedbackEntry, Photo, RouteCleanup, TrashSite
+from .permissions import can_edit_trash_site, can_mark_cleaned, can_set_invalid_status, is_admin
+from .services import build_user_impact_stats, log_activity
 
 
 def _json_error(message, status=400):
@@ -83,7 +87,7 @@ def _photo_urls_for_proofs(proofs):
     return urls
 
 
-def _serialize_trash_site(site):
+def _serialize_trash_site(site, user=None):
     return {
         "id": str(site.id),
         "status": site.status,
@@ -97,6 +101,11 @@ def _serialize_trash_site(site):
         "updated_at": site.updated_at.isoformat(),
         "cleaned_at": site.cleaned_at.isoformat() if site.cleaned_at else None,
         "coordinates": [site.location.x, site.location.y],
+        "permissions": {
+            "can_edit": can_edit_trash_site(user, site) if user else False,
+            "can_mark_cleaned": can_mark_cleaned(user, site) if user else False,
+            "can_invalidate": can_set_invalid_status(user) if user else False,
+        },
         "photos": _photo_urls_for_proofs(site.proofs.prefetch_related("photos")),
         "proofs": [
             {
@@ -112,7 +121,7 @@ def _serialize_trash_site(site):
     }
 
 
-def _serialize_route(route):
+def _serialize_route(route, user=None):
     return {
         "id": str(route.id),
         "status": route.status,
@@ -122,6 +131,9 @@ def _serialize_route(route):
         "created_by": route.created_by.username,
         "created_at": route.created_at.isoformat(),
         "coordinates": list(route.geometry.coords),
+        "permissions": {
+            "is_admin": is_admin(user) if user else False,
+        },
         "photos": _photo_urls_for_proofs(route.proofs.prefetch_related("photos")),
         "proofs": [
             {
@@ -137,7 +149,29 @@ def _serialize_route(route):
     }
 
 
-def _site_to_feature(site):
+def _serialize_activity(activity):
+    focus_type = ""
+    focus_id = ""
+    if activity.trash_site_id:
+        focus_type = "trash_site"
+        focus_id = str(activity.trash_site_id)
+    elif activity.route_cleanup_id:
+        focus_type = "route_cleanup"
+        focus_id = str(activity.route_cleanup_id)
+
+    return {
+        "id": str(activity.id),
+        "activity_type": activity.activity_type,
+        "activity_label": activity.get_activity_type_display(),
+        "actor": activity.actor.username,
+        "summary": activity.summary,
+        "created_at": activity.created_at.isoformat(),
+        "focus_type": focus_type,
+        "focus_id": focus_id,
+    }
+
+
+def _site_to_feature(site, user=None):
     return {
         "type": "Feature",
         "geometry": {"type": "Point", "coordinates": [site.location.x, site.location.y]},
@@ -151,11 +185,12 @@ def _site_to_feature(site):
             "hazard_flag": site.hazard_flag,
             "cleaned_at": site.cleaned_at.isoformat() if site.cleaned_at else None,
             "created_at": site.created_at.isoformat(),
+            "can_mark_cleaned": can_mark_cleaned(user, site) if user else False,
         },
     }
 
 
-def _route_to_feature(route):
+def _route_to_feature(route, user=None):
     return {
         "type": "Feature",
         "geometry": {
@@ -170,6 +205,7 @@ def _route_to_feature(route):
             "distance_miles": route.distance_miles,
             "time_spent_minutes": route.time_spent_minutes,
             "created_at": route.created_at.isoformat(),
+            "is_admin": is_admin(user) if user else False,
         },
     }
 
@@ -182,6 +218,29 @@ def home(request):
 @login_required
 def map_view(request):
     return render(request, "geoapp/map.html")
+
+
+@require_GET
+def healthz(request):
+    try:
+        connection.ensure_connection()
+    except Exception as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=503)
+    return JsonResponse({"ok": True, "database": "up"})
+
+
+@login_required
+def updates_view(request):
+    activities = ActivityLog.objects.select_related("actor", "trash_site", "route_cleanup")[:25]
+    context = {
+        "activities": [_serialize_activity(activity) for activity in activities],
+    }
+    return render(request, "geoapp/updates.html", context)
+
+
+@login_required
+def impact_view(request):
+    return render(request, "geoapp/impact.html", {"stats": build_user_impact_stats(request.user)})
 
 
 @login_required
@@ -203,7 +262,9 @@ def features_api(request):
         trash_qs = trash_qs.filter(created_at__gte=cutoff)
         route_qs = route_qs.filter(created_at__gte=cutoff)
 
-    features = [_site_to_feature(site) for site in trash_qs] + [_route_to_feature(route) for route in route_qs]
+    features = [_site_to_feature(site, user=request.user) for site in trash_qs] + [
+        _route_to_feature(route, user=request.user) for route in route_qs
+    ]
     return JsonResponse({"type": "FeatureCollection", "features": features})
 
 
@@ -255,8 +316,22 @@ def trash_site_create_api(request):
         )
         for image in photos:
             Photo.objects.create(proof=proof, image=image)
+        log_activity(
+            ActivityLog.ActivityType.PROOF_ADDED,
+            request.user,
+            trash_site=site,
+            proof=proof,
+            summary=f"{request.user.username} attached report photos.",
+        )
 
-    return JsonResponse(_serialize_trash_site(site), status=201)
+    log_activity(
+        ActivityLog.ActivityType.TRASH_REPORTED,
+        request.user,
+        trash_site=site,
+        summary=f"{request.user.username} reported a trash site.",
+    )
+
+    return JsonResponse(_serialize_trash_site(site, user=request.user), status=201)
 
 
 @login_required
@@ -264,13 +339,18 @@ def trash_site_create_api(request):
 def trash_site_update_api(request, site_id):
     site = get_object_or_404(TrashSite, id=site_id)
     if request.method == "GET":
-        return JsonResponse(_serialize_trash_site(site))
+        return JsonResponse(_serialize_trash_site(site, user=request.user))
+
+    if not can_edit_trash_site(request.user, site):
+        return _json_error("You do not have permission to edit this trash site.", status=403)
 
     data = _load_payload(request)
 
     status = str(data.get("status", site.status)).upper()
     if status not in TrashSite.Status.values:
         return _json_error("Invalid status.")
+    if status == TrashSite.Status.INVALID and not can_set_invalid_status(request.user):
+        return _json_error("Only admins can invalidate trash sites.", status=403)
     site.status = status
 
     if "title" in data:
@@ -290,13 +370,21 @@ def trash_site_update_api(request, site_id):
     if site.status != TrashSite.Status.CLEANED:
         site.cleaned_at = None
     site.save()
-    return JsonResponse(_serialize_trash_site(site))
+    log_activity(
+        ActivityLog.ActivityType.TRASH_UPDATED,
+        request.user,
+        trash_site=site,
+        summary=f"{request.user.username} updated a trash site.",
+    )
+    return JsonResponse(_serialize_trash_site(site, user=request.user))
 
 
 @login_required
 @require_http_methods(["POST"])
 def trash_site_mark_cleaned_api(request, site_id):
     site = get_object_or_404(TrashSite, id=site_id)
+    if not can_mark_cleaned(request.user, site):
+        return _json_error("You do not have permission to mark this site cleaned.", status=403)
 
     note = request.POST.get("note", "").strip()
     bags_count = _coerce_int(request.POST.get("bags_count"), default=0)
@@ -315,7 +403,23 @@ def trash_site_mark_cleaned_api(request, site_id):
     site.cleaned_at = timezone.now()
     site.save(update_fields=["status", "cleaned_at", "updated_at"])
 
-    return JsonResponse(_serialize_trash_site(site))
+    log_activity(
+        ActivityLog.ActivityType.TRASH_CLEANED,
+        request.user,
+        trash_site=site,
+        proof=proof,
+        summary=f"{request.user.username} marked a trash site cleaned.",
+    )
+    if photos:
+        log_activity(
+            ActivityLog.ActivityType.PROOF_ADDED,
+            request.user,
+            trash_site=site,
+            proof=proof,
+            summary=f"{request.user.username} attached cleanup proof photos.",
+        )
+
+    return JsonResponse(_serialize_trash_site(site, user=request.user))
 
 
 def _extract_route_coordinates(data):
@@ -372,8 +476,22 @@ def route_cleanup_create_api(request):
         )
         for image in photos:
             Photo.objects.create(proof=proof, image=image)
+        log_activity(
+            ActivityLog.ActivityType.PROOF_ADDED,
+            request.user,
+            route_cleanup=route,
+            proof=proof,
+            summary=f"{request.user.username} attached route cleanup photos.",
+        )
 
-    return JsonResponse(_serialize_route(route), status=201)
+    log_activity(
+        ActivityLog.ActivityType.ROUTE_LOGGED,
+        request.user,
+        route_cleanup=route,
+        summary=f"{request.user.username} logged a cleanup route.",
+    )
+
+    return JsonResponse(_serialize_route(route, user=request.user), status=201)
 
 
 @login_required
@@ -383,7 +501,7 @@ def trash_site_detail_api(request, site_id):
         TrashSite.objects.select_related("created_by", "claimed_by").prefetch_related("proofs__photos", "proofs__created_by"),
         id=site_id,
     )
-    return JsonResponse(_serialize_trash_site(site))
+    return JsonResponse(_serialize_trash_site(site, user=request.user))
 
 
 @login_required
@@ -393,4 +511,67 @@ def route_cleanup_detail_api(request, route_id):
         RouteCleanup.objects.select_related("created_by").prefetch_related("proofs__photos", "proofs__created_by"),
         id=route_id,
     )
-    return JsonResponse(_serialize_route(route))
+    return JsonResponse(_serialize_route(route, user=request.user))
+
+
+@login_required
+@require_GET
+def activity_api(request):
+    cutoff = _days_to_cutoff(request.GET.get("days", "all"))
+    activity_type = str(request.GET.get("type", "")).upper().strip()
+    page_number = request.GET.get("page", "1")
+    page_size_raw = request.GET.get("page_size", "25")
+
+    activities = ActivityLog.objects.select_related("actor", "trash_site", "route_cleanup")
+    if cutoff:
+        activities = activities.filter(created_at__gte=cutoff)
+    if activity_type and activity_type in ActivityLog.ActivityType.values:
+        activities = activities.filter(activity_type=activity_type)
+
+    try:
+        page_size = max(1, min(int(page_size_raw), 100))
+    except ValueError:
+        page_size = 25
+
+    paginator = Paginator(activities, page_size)
+    page_obj = paginator.get_page(page_number)
+    return JsonResponse(
+        {
+            "count": paginator.count,
+            "page": page_obj.number,
+            "num_pages": paginator.num_pages,
+            "results": [_serialize_activity(activity) for activity in page_obj.object_list],
+        }
+    )
+
+
+@login_required
+@require_http_methods(["POST"])
+def feedback_create_api(request):
+    data = _load_payload(request)
+    feedback_type = str(data.get("feedback_type", FeedbackEntry.FeedbackType.GENERAL)).upper().strip()
+    message = str(data.get("message", "")).strip()
+    page_url = str(data.get("page_url", "")).strip()
+
+    if feedback_type not in FeedbackEntry.FeedbackType.values:
+        return _json_error("Invalid feedback type.")
+    if not message:
+        return _json_error("message is required.")
+
+    entry = FeedbackEntry.objects.create(
+        feedback_type=feedback_type,
+        message=message,
+        page_url=page_url,
+        created_by=request.user,
+    )
+    return JsonResponse(
+        {
+            "id": str(entry.id),
+            "feedback_type": entry.feedback_type,
+            "status": entry.status,
+            "message": entry.message,
+            "page_url": entry.page_url,
+            "created_at": entry.created_at.isoformat(),
+        },
+        status=201,
+    )

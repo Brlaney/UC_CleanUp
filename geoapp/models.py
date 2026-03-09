@@ -30,6 +30,23 @@ def _line_length_meters(linestring):
     return distance
 
 
+class Profile(models.Model):
+    class Role(models.TextChoices):
+        MEMBER = "MEMBER", "Member"
+        ADMIN = "ADMIN", "Admin"
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["user__username"]
+
+    def __str__(self):
+        return f"{self.user.username} ({self.role})"
+
+
 class TrashSite(models.Model):
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -123,3 +140,56 @@ class Photo(models.Model):
 
     def __str__(self):
         return f"Photo {self.id}"
+
+
+class ActivityLog(models.Model):
+    class ActivityType(models.TextChoices):
+        TRASH_REPORTED = "TRASH_REPORTED", "Trash Reported"
+        TRASH_UPDATED = "TRASH_UPDATED", "Trash Updated"
+        TRASH_CLEANED = "TRASH_CLEANED", "Trash Cleaned"
+        ROUTE_LOGGED = "ROUTE_LOGGED", "Route Logged"
+        PROOF_ADDED = "PROOF_ADDED", "Proof Added"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    activity_type = models.CharField(max_length=30, choices=ActivityType.choices, db_index=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="activity_logs")
+    trash_site = models.ForeignKey(TrashSite, on_delete=models.CASCADE, null=True, blank=True, related_name="activity_logs")
+    route_cleanup = models.ForeignKey(
+        RouteCleanup, on_delete=models.CASCADE, null=True, blank=True, related_name="activity_logs"
+    )
+    proof = models.ForeignKey(CleanupProof, on_delete=models.CASCADE, null=True, blank=True, related_name="activity_logs")
+    summary = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.activity_type} by {self.actor}"
+
+
+class FeedbackEntry(models.Model):
+    class FeedbackType(models.TextChoices):
+        BUG = "BUG", "Bug"
+        REQUEST = "REQUEST", "Request"
+        GENERAL = "GENERAL", "General"
+
+    class Status(models.TextChoices):
+        OPEN = "OPEN", "Open"
+        ACKNOWLEDGED = "ACKNOWLEDGED", "Acknowledged"
+        CLOSED = "CLOSED", "Closed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    feedback_type = models.CharField(max_length=20, choices=FeedbackType.choices, default=FeedbackType.GENERAL, db_index=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN, db_index=True)
+    message = models.TextField()
+    page_url = models.CharField(max_length=500, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="feedback_entries")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.feedback_type} from {self.created_by}"

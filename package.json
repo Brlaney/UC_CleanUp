@@ -2,9 +2,12 @@
   "name": "putnam-trashmap-e2e",
   "private": true,
   "version": "1.0.0",
-  "description": "Minimal Playwright smoke checks for Putnam Trashmap",
+  "description": "Playwright smoke checks and screenshot capture for Upper Cumberland CleanUp",
   "scripts": {
-    "e2e:smoke": "playwright test e2e/map-smoke.spec.js --project=chromium"
+    "e2e:install": "playwright install chromium",
+    "e2e:smoke": "playwright test e2e/map-smoke.spec.js --project=desktop-chrome",
+    "e2e:screenshots": "playwright test e2e/screenshot-gallery.spec.js --project=desktop-chrome --project=desktop-wide --project=iphone-14 --project=pixel-7",
+    "screenshots": "powershell -ExecutionPolicy Bypass -File scripts/capture-screenshots.ps1"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0"

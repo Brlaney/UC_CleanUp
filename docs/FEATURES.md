@@ -18,9 +18,11 @@ Future ideas and design planning are tracked separately in `docs/UI_ROADMAP.md`.
 - `/map/` renders a full map view using Leaflet.
 - Map default center is near Cookeville (`[36.1627, -85.5016]`) with zoom 12.
 - OpenStreetMap tiles are loaded.
+- County boundary overlays support Putnam-only, a six-county TN preset (`Smith`, `Jackson`, `Putnam`, `White`, `Van Buren`, `Cumberland`), full Upper Cumberland, and custom county selection.
 - Side panel includes filters, actions, and detail area.
 - Done when:
   - Logged-in user sees map, controls, and basemap tiles.
+  - Changing county overlay presets swaps the highlighted boundaries without clearing cleanup overlays.
 
 ### F-003 Shared Feature Loading with BBox + Filters
 - Frontend requests `GET /api/features/` using:

@@ -28,6 +28,7 @@
   const routeLayer = L.layerGroup().addTo(map);
   const mapLayerSelect = document.getElementById("map-layer-select");
   const overlayPutnamToggle = document.getElementById("overlay-putnam-toggle");
+  const overlaySixCountyToggle = document.getElementById("overlay-six-county-toggle");
   const overlayUpperToggle = document.getElementById("overlay-upper-toggle");
   const overlayCustomToggle = document.getElementById("overlay-custom-toggle");
   const countyBoundaryCheckboxes = Array.from(
@@ -51,6 +52,13 @@
     [-85, 180],
     [-85, -180],
   ];
+  const SIX_COUNTY_PRESET = ["Smith", "Jackson", "Putnam", "White", "Van Buren", "Cumberland"];
+  const overlayModeToggles = [
+    overlayPutnamToggle,
+    overlaySixCountyToggle,
+    overlayUpperToggle,
+    overlayCustomToggle,
+  ].filter(Boolean);
 
   const BASEMAP_CONFIG = {
     osm_standard: {
@@ -194,9 +202,28 @@
     customCountyListWrap.classList.toggle("is-hidden", !isCustomEnabled);
   }
 
+  function ensureOverlayModeSelection(activeToggle) {
+    if (activeToggle && activeToggle.checked) {
+      overlayModeToggles.forEach((toggle) => {
+        if (toggle !== activeToggle) {
+          toggle.checked = false;
+        }
+      });
+      return;
+    }
+
+    if (!overlayModeToggles.some((toggle) => toggle.checked) && overlayPutnamToggle) {
+      overlayPutnamToggle.checked = true;
+    }
+  }
+
   function getSelectedCountyNames() {
     if (overlayUpperToggle && overlayUpperToggle.checked) {
       return new Set(Array.from(countyBoundaryLayersByName.keys()));
+    }
+
+    if (overlaySixCountyToggle && overlaySixCountyToggle.checked) {
+      return new Set(SIX_COUNTY_PRESET);
     }
 
     if (overlayCustomToggle && overlayCustomToggle.checked) {
@@ -246,35 +273,19 @@
       setBaseLayer(mapLayerSelect.value);
     });
   }
-  if (overlayUpperToggle) {
-    overlayUpperToggle.addEventListener("change", function () {
-      if (overlayUpperToggle.checked && overlayCustomToggle) {
-        overlayCustomToggle.checked = false;
-      }
-      syncCustomCountyListVisibility();
-      syncCountyBoundaryVisibility().catch((error) => {
-        setDetailHtml(renderDetailNotice("Overlay error", error.message));
-      });
+  function handleOverlayModeToggleChange(activeToggle) {
+    ensureOverlayModeSelection(activeToggle);
+    syncCustomCountyListVisibility();
+    syncCountyBoundaryVisibility().catch((error) => {
+      setDetailHtml(renderDetailNotice("Overlay error", error.message));
     });
   }
-  if (overlayCustomToggle) {
-    overlayCustomToggle.addEventListener("change", function () {
-      if (overlayCustomToggle.checked && overlayUpperToggle) {
-        overlayUpperToggle.checked = false;
-      }
-      syncCustomCountyListVisibility();
-      syncCountyBoundaryVisibility().catch((error) => {
-        setDetailHtml(renderDetailNotice("Overlay error", error.message));
-      });
+
+  overlayModeToggles.forEach((toggle) => {
+    toggle.addEventListener("change", function () {
+      handleOverlayModeToggleChange(toggle);
     });
-  }
-  if (overlayPutnamToggle) {
-    overlayPutnamToggle.addEventListener("change", function () {
-      syncCountyBoundaryVisibility().catch((error) => {
-        setDetailHtml(renderDetailNotice("Overlay error", error.message));
-      });
-    });
-  }
+  });
   countyBoundaryCheckboxes.forEach((checkbox) => {
     checkbox.addEventListener("change", function () {
       syncCountyBoundaryVisibility().catch((error) => {
@@ -817,6 +828,7 @@
     });
   });
 
+  ensureOverlayModeSelection(null);
   syncCustomCountyListVisibility();
   syncCountyBoundaryVisibility().catch((error) => {
     setDetailHtml(renderDetailNotice("Overlay error", error.message));

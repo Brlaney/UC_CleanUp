@@ -26,6 +26,10 @@ test.describe("Map smoke", () => {
     await loginAndWaitForMap(page, baseUrl, demo.username, demo.password);
     await expect(page.locator("#map")).toBeVisible();
     await expect(page.locator("#map.leaflet-container")).toBeVisible();
+    await expect(page.locator("#overlay-six-county-toggle")).toBeVisible();
+    await page.locator("#overlay-six-county-toggle").check();
+    await expect(page.locator("#overlay-six-county-toggle")).toBeChecked();
+    await expect(page.locator("#overlay-putnam-toggle")).not.toBeChecked();
     assertNoClientErrors(clientErrors);
   });
 });

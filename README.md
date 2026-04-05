@@ -40,6 +40,7 @@ All-Django web app for tracking trash sites and cleanup routes in Putnam County,
 - Filter map features by:
   - trash status (`PENDING`, `IN_PROGRESS`, `CLEANED`)
   - date range (`7`, `30`, `all`)
+- Toggle county boundary overlays for Putnam, a six-county TN preset, the full Upper Cumberland, or a custom county mix.
 - Review a basic activity feed at `/updates/`.
 - Review per-user contribution totals at `/impact/`.
 - Submit in-app bug/request/general feedback from the top bar.

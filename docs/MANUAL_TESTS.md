@@ -27,11 +27,14 @@ Steps:
 1. Log in.
 2. Open `/map/`.
 3. Confirm map container, side panel, and buttons render.
-4. Pan/zoom and verify map tiles load.
+4. Switch the county overlay to the six-county TN preset.
+5. Pan/zoom and verify map tiles load.
 
 Expected:
 - Map opens near Putnam/Cookeville area.
 - Side controls and basemap are visible and usable.
+- The six-county overlay highlights `Smith`, `Jackson`, `Putnam`, `White`, `Van Buren`, and `Cumberland`.
+- Changing overlay presets keeps the cleanup features in place.
 
 ## MT-003 Browse/List Features with Filters
 Related feature: `F-003`

@@ -1,12 +1,23 @@
 from django.contrib import admin
 from django.contrib.gis.admin import GISModelAdmin
 
-from .models import ActivityLog, CleanupProof, FeedbackEntry, Photo, Profile, RouteCleanup, TrashSite
+from .models import (
+    ActivityLog, CleanupProof, District, FeedbackEntry,
+    IPBan, Photo, Profile, RouteCleanup, TrashSite,
+)
 
 
 class PhotoInline(admin.TabularInline):
     model = Photo
     extra = 0
+
+
+@admin.register(District)
+class DistrictAdmin(GISModelAdmin):
+    list_display = ("name", "slug", "active", "created_at")
+    list_filter = ("active",)
+    search_fields = ("name", "slug")
+    prepopulated_fields = {"slug": ("name",)}
 
 
 @admin.register(CleanupProof)
@@ -18,11 +29,11 @@ class CleanupProofAdmin(admin.ModelAdmin):
 
 @admin.register(TrashSite)
 class TrashSiteAdmin(GISModelAdmin):
-    list_display = ("id", "status", "severity", "hazard_flag", "created_by", "created_at", "cleaned_at")
-    list_filter = ("status", "severity", "hazard_flag")
+    list_display = ("id", "status", "severity", "hazard_flag", "district", "created_by", "created_at", "cleaned_at")
+    list_filter = ("status", "severity", "hazard_flag", "district")
     search_fields = ("title", "description", "created_by__username")
     readonly_fields = ("created_at", "updated_at", "cleaned_at")
-    autocomplete_fields = ("created_by", "claimed_by")
+    autocomplete_fields = ("created_by", "claimed_by", "district")
 
 
 @admin.register(RouteCleanup)
@@ -36,7 +47,8 @@ class RouteCleanupAdmin(GISModelAdmin):
 
 @admin.register(Photo)
 class PhotoAdmin(admin.ModelAdmin):
-    list_display = ("id", "proof", "created_at")
+    list_display = ("id", "photo_type", "proof", "created_at")
+    list_filter = ("photo_type",)
     autocomplete_fields = ("proof",)
 
 
@@ -50,10 +62,10 @@ class ProfileAdmin(admin.ModelAdmin):
 
 @admin.register(ActivityLog)
 class ActivityLogAdmin(admin.ModelAdmin):
-    list_display = ("activity_type", "actor", "trash_site", "route_cleanup", "created_at")
+    list_display = ("activity_type", "actor", "trash_site", "created_at")
     list_filter = ("activity_type",)
     search_fields = ("summary", "actor__username")
-    autocomplete_fields = ("actor", "trash_site", "route_cleanup", "proof")
+    autocomplete_fields = ("actor", "trash_site", "proof")
     readonly_fields = ("created_at",)
 
 
@@ -64,3 +76,11 @@ class FeedbackEntryAdmin(admin.ModelAdmin):
     search_fields = ("message", "created_by__username", "page_url")
     autocomplete_fields = ("created_by",)
     readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(IPBan)
+class IPBanAdmin(admin.ModelAdmin):
+    list_display = ("ip_address", "reason", "banned_at", "expires_at", "created_by")
+    list_filter = ("banned_at",)
+    search_fields = ("ip_address", "reason")
+    readonly_fields = ("banned_at",)

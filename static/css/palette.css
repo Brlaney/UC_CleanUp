@@ -1,7 +1,7 @@
 :root {
   --color-text-primary: #17324b;
   --color-text-secondary: #4d667c;
-  --color-text-muted: #6d8498;
+  --color-text-muted: #5a7489; /* darkened from #6d8498 for WCAG AA 4.5:1 */
   --color-text-inverse: #f8fbff;
 
   --color-bg-page: #eef4f7;
@@ -69,6 +69,23 @@
   --shadow-sm: 0 10px 24px rgba(12, 42, 66, 0.06);
   --shadow-md: 0 18px 42px rgba(12, 42, 66, 0.1);
   --shadow-lg: 0 28px 60px rgba(12, 42, 66, 0.14);
+
+  --color-toast-success-bg: #e7f6ee;
+  --color-toast-success-text: #1e7b48;
+  --color-toast-success-border: #b4dfc9;
+  --color-toast-error-bg: #fbe6e9;
+  --color-toast-error-text: #b6364d;
+  --color-toast-error-border: #f0bfc7;
+  --color-toast-info-bg: #edf7ff;
+  --color-toast-info-text: #216ea3;
+  --color-toast-info-border: #b5d6f0;
+
+  --color-mode-report-bg: #0d5d95;
+  --color-mode-report-bg-hover: #094b77;
+  --color-mode-cleanup-bg: #1f7a5c;
+  --color-mode-cleanup-bg-hover: #175f48;
+
+  --color-district-accent: #0e5ea8;
 
   --map-marker-pending: #db5a26;
   --map-marker-in-progress: #ccb10f;

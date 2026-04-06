@@ -40,6 +40,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "geoapp.middleware.IPBanMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -81,6 +82,23 @@ DATABASES = {
         ssl_require=os.getenv("DATABASE_SSL_REQUIRE", "0") == "1",
     )
 }
+
+
+# Cache (used by django-ratelimit)
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "ratelimit",
+    }
+}
+
+_redis_url = os.getenv("REDIS_URL")
+if _redis_url:
+    CACHES["default"] = {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": _redis_url,
+    }
 
 
 # Password validation
@@ -128,8 +146,8 @@ STATICFILES_BACKEND = (
 )
 
 LOGIN_URL = "/accounts/login/"
-LOGIN_REDIRECT_URL = "/map/"
-LOGOUT_REDIRECT_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/"
 
 USE_S3_MEDIA = os.getenv("USE_S3_MEDIA", "0") == "1"
 if USE_S3_MEDIA:
@@ -166,6 +184,9 @@ else:
             "BACKEND": STATICFILES_BACKEND,
         },
     }
+
+# Required by OSM tile usage policy — send origin on cross-origin tile requests.
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

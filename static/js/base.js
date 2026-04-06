@@ -1,85 +1,70 @@
 (function () {
-  const config = window.APP_BASE_CONFIG;
-  const feedbackModal = document.getElementById("feedback-modal");
-  const feedbackOpenButton = document.getElementById("feedback-open-btn");
-  const feedbackForm = document.getElementById("feedback-form");
-  const feedbackStatus = document.getElementById("feedback-status");
-  const feedbackPageUrl = document.getElementById("feedback-page-url");
+  "use strict";
+  var U = window.AppUtils;
+  var config = window.APP_BASE_CONFIG || {};
 
-  function getCsrfToken() {
-    const match = document.cookie
-      .split(";")
-      .map((value) => value.trim())
-      .find((value) => value.startsWith("csrftoken="));
-    return match ? decodeURIComponent(match.split("=")[1]) : "";
-  }
-
-  function openModal() {
-    if (!feedbackModal) {
-      return;
-    }
-    if (feedbackPageUrl) {
-      feedbackPageUrl.value = window.location.pathname + window.location.search;
-    }
-    feedbackModal.classList.remove("hidden");
-  }
-
-  function closeModal() {
-    if (!feedbackModal) {
-      return;
-    }
-    feedbackModal.classList.add("hidden");
-  }
+  /* ---- Feedback modal ---- */
+  var feedbackOpenBtn = document.getElementById("feedback-open-btn");
+  var feedbackForm = document.getElementById("feedback-form");
+  var feedbackStatus = document.getElementById("feedback-status");
+  var feedbackPageUrl = document.getElementById("feedback-page-url");
 
   function setStatus(message, state) {
-    if (!feedbackStatus) {
-      return;
-    }
+    if (!feedbackStatus) return;
     feedbackStatus.textContent = message || "";
     feedbackStatus.classList.remove("is-error", "is-success");
-    if (state) {
-      feedbackStatus.classList.add(state);
-    }
+    if (state) feedbackStatus.classList.add(state);
   }
 
-  async function submitFeedback(event) {
-    event.preventDefault();
-    const formData = new FormData(feedbackForm);
-    setStatus("");
-    const response = await fetch(config.endpoints.feedbackCreate, {
-      method: "POST",
-      headers: {
-        "X-CSRFToken": getCsrfToken(),
-      },
-      body: formData,
-      credentials: "same-origin",
+  if (feedbackOpenBtn) {
+    feedbackOpenBtn.addEventListener("click", function () {
+      if (feedbackPageUrl) feedbackPageUrl.value = window.location.pathname + window.location.search;
+      U.openModal("feedback-modal");
     });
-    const payload = await response.json();
-    if (!response.ok) {
-      setStatus(payload.error || "Unable to send feedback.", "is-error");
-      return;
-    }
-    feedbackForm.reset();
-    if (feedbackPageUrl) {
-      feedbackPageUrl.value = window.location.pathname + window.location.search;
-    }
-    setStatus("Feedback sent. Thank you.", "is-success");
-    window.setTimeout(closeModal, 900);
   }
-
-  if (feedbackOpenButton) {
-    feedbackOpenButton.addEventListener("click", openModal);
-  }
-
-  document.querySelectorAll('[data-close-modal="feedback-modal"]').forEach((button) => {
-    button.addEventListener("click", closeModal);
-  });
 
   if (feedbackForm) {
-    feedbackForm.addEventListener("submit", function (event) {
-      submitFeedback(event).catch(function () {
-        setStatus("Unable to send feedback.", "is-error");
+    feedbackForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      setStatus("");
+      U.fetchJson(config.endpoints.feedbackCreate, {
+        method: "POST",
+        headers: { "X-CSRFToken": U.getCsrfToken() },
+        body: new FormData(feedbackForm),
+      }).then(function () {
+        feedbackForm.reset();
+        if (feedbackPageUrl) feedbackPageUrl.value = window.location.pathname + window.location.search;
+        setStatus("Feedback sent. Thank you.", "is-success");
+        setTimeout(function () { U.closeModal("feedback-modal"); }, 900);
+      }).catch(function (err) {
+        setStatus(err.message || "Unable to send feedback.", "is-error");
       });
+    });
+  }
+
+  /* ---- Generic close-modal buttons ---- */
+  document.querySelectorAll("[data-close-modal]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      U.closeModal(btn.getAttribute("data-close-modal"));
+    });
+  });
+
+  /* ---- Hamburger toggle ---- */
+  var hamburger = document.getElementById("hamburger-btn");
+  var navCollapse = document.getElementById("nav-collapse");
+  if (hamburger && navCollapse) {
+    hamburger.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var open = hamburger.getAttribute("aria-expanded") === "true";
+      hamburger.setAttribute("aria-expanded", String(!open));
+      navCollapse.classList.toggle("is-open", !open);
+    });
+    navCollapse.addEventListener("click", function (e) {
+      e.stopPropagation();
+    });
+    document.addEventListener("click", function () {
+      hamburger.setAttribute("aria-expanded", "false");
+      navCollapse.classList.remove("is-open");
     });
   }
 })();

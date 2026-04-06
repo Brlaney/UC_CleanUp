@@ -358,35 +358,71 @@
   box-shadow: var(--shadow-sm);
 }
 
-.map-type-footer {
-  margin-top: 0;
+.mode-switcher-section {
+  padding: 1rem;
 }
 
-.overlay-toggle-row {
-  margin-bottom: 0;
-}
-
-.overlay-mode-list {
+.mode-switcher {
   display: flex;
-  flex-direction: column;
-  gap: 0.38rem;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
-.county-boundary-wrap {
-  margin-top: 0.55rem;
+.btn-mode {
+  flex: 1;
+  min-height: 2.85rem;
+  border-radius: var(--radius-pill);
+  font-weight: 800;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 
-.county-boundary-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.38rem;
-  max-height: 220px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 0.75rem;
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-soft);
+.btn-mode--report {
+  background: var(--color-btn-subtle-bg);
+  color: var(--color-btn-subtle-text);
+}
+
+.btn-mode--report.is-active {
+  background: var(--color-mode-report-bg);
+  color: #fff;
+}
+
+.btn-mode--report:hover {
+  background: var(--color-mode-report-bg-hover);
+  color: #fff;
+}
+
+.btn-mode--cleanup {
+  background: var(--color-btn-subtle-bg);
+  color: var(--color-btn-subtle-text);
+}
+
+.btn-mode--cleanup.is-active {
+  background: var(--color-mode-cleanup-bg);
+  color: #fff;
+}
+
+.btn-mode--cleanup:hover {
+  background: var(--color-mode-cleanup-bg-hover);
+  color: #fff;
+}
+
+.mode-instructions {
+  min-height: 1.4rem;
+  color: var(--color-text-secondary);
+  font-size: 0.92rem;
+}
+
+.report-mode-panel h2,
+.cleanup-mode-panel h2 {
+  margin-bottom: 0.3rem;
+  font-size: 1rem;
+}
+
+.report-mode-panel p,
+.cleanup-mode-panel p {
+  margin: 0 0 0.75rem;
+  color: var(--color-text-secondary);
+  font-size: 0.92rem;
 }
 
 .checkbox-label {
@@ -403,8 +439,8 @@
   margin: 0;
 }
 
-.is-hidden {
-  display: none;
+.hidden {
+  display: none !important;
 }
 
 #map {
@@ -539,4 +575,21 @@
   #map {
     min-height: 50vh;
   }
+}
+
+/* District label tooltip */
+.district-label {
+  background: rgba(14, 94, 168, 0.85);
+  color: #fff;
+  border: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
+  padding: 3px 8px;
+  border-radius: 3px;
+}
+
+.district-label::before {
+  display: none;
 }

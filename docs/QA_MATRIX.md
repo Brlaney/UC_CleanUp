@@ -1,30 +1,31 @@
 # QA Matrix
 
-Coverage inventory for implemented features.  
+Coverage inventory for implemented features.
 Feature IDs are sourced from `docs/FEATURES.md`.
 
-| ID | Feature | Scope / Acceptance Criteria | Auto Tests (✅/⚠️/❌) | Manual Tests (✅/⚠️/❌) | Test Locations | Manual Script | Notes / Feedback | Owner |
-|---|---|---|---|---|---|---|---|---|
-| F-001 | Authenticated access control | Unauthenticated users are redirected for `/map/` and `/api/*`; authenticated users can access. | ✅ | ⚠️ | `geoapp/tests.py::AuthGateTests` | [MT-001](MANUAL_TESTS.md#mt-001-authentication-required-for-map-and-api) | Covers unauth redirects and authenticated success paths. | TBD |
-| F-002 | Map initialization and basemap UX | `/map/` renders controls + tiles centered near Cookeville. | ✅ | ⚠️ | `e2e/map-smoke.spec.js`, `e2e/screenshot-gallery.spec.js` | [MT-002](MANUAL_TESTS.md#mt-002-map-loads-and-basemap-ui) | Smoke covers map load and the six-county overlay preset toggle; screenshot suite still covers responsive rendering. | TBD |
-| F-003 | Shared feature loading with bbox + filters | Status/date/bbox filtering updates rendered features on move/zoom and apply. | ✅ | ⚠️ | `geoapp/tests.py::FeaturesFilterApiTests` | [MT-003](MANUAL_TESTS.md#mt-003-browselist-features-with-filters) | Includes bbox + status + days filtering assertions. | TBD |
-| F-004 | Create TrashSite from map | Multipart create persists marker with optional metadata/photos. | ✅ | ⚠️ | `geoapp/tests.py::TrashSiteApiLifecycleTests::test_create_trash_site_returns_expected_fields_and_geometry` | [MT-004](MANUAL_TESTS.md#mt-004-create-trashsite-item) | Verifies 201 response, status, coordinates, and SRID persistence. | TBD |
-| F-005 | TrashSite detail + proof history | Detail panel loads serialized fields and proof/photo list. | ❌ | ⚠️ | N/A | [MT-005](MANUAL_TESTS.md#mt-005-view-trashsite-detail-and-proofs) | Missing detail endpoint tests. | TBD |
-| F-006 | Mark TrashSite cleaned | Marks status `CLEANED`, sets `cleaned_at`, stores proof and bags count. | ✅ | ⚠️ | `geoapp/tests.py::MarkCleanedApiTests::test_mark_cleaned_sets_status_and_cleaned_at` | [MT-006](MANUAL_TESTS.md#mt-006-mark-trashsite-cleaned) | Photo upload branch still untested automatically. | TBD |
-| F-007 | Edit TrashSite via PATCH | PATCH updates supported fields; cleaning timestamp toggles by status. | ✅ | ⚠️ | `geoapp/tests.py::TrashSiteApiLifecycleTests::test_patch_trash_site_updates_fields_and_cleaned_at_transitions` | [MT-007](MANUAL_TESTS.md#mt-007-edit-trashsite-via-api-patch) | Includes status toggles and `cleaned_at` transition assertions. | TBD |
-| F-008 | Create RouteCleanup polyline | Drawn line saves with notes/time/photos and appears on map. | ✅ | ⚠️ | `geoapp/tests.py::RouteCleanupApiTests::test_create_route_get_detail_and_list_in_features_bbox` | [MT-008](MANUAL_TESTS.md#mt-008-create-routecleanup-item) | Validates route create API and feature-list presence. | TBD |
-| F-009 | Route detail and distance display | Route detail endpoint and panel show distance/notes/time. | ✅ | ⚠️ | `geoapp/tests.py::RouteCleanupApiTests::test_create_route_get_detail_and_list_in_features_bbox` | [MT-009](MANUAL_TESTS.md#mt-009-route-detail-and-distance-display) | Confirms detail endpoint returns non-zero `distance_miles`. | TBD |
-| F-010 | Admin management incl. delete | Admin can edit/delete model records and deletions stop showing on map. | ❌ | ⚠️ | N/A | [MT-010](MANUAL_TESTS.md#mt-010-admin-crud-and-delete-item) | Delete only available via admin, not map UI/API. | TBD |
-| F-019 | Activity updates feed | `/updates/` and `/api/activity/` show recent events and link back to focused map features. | ✅ | ⚠️ | `geoapp/tests.py::ActivityAndImpactTests` | [MT-019](MANUAL_TESTS.md#mt-019-activity-updates-feed) | API logging and feed payload are covered; HTML page still needs manual smoke. | TBD |
-| F-020 | Personal impact dashboard | `/impact/` shows current-user totals for reports, cleanups, bags, routes, miles, and time. | ✅ | ⚠️ | `geoapp/tests.py::ActivityAndImpactTests` | [MT-020](MANUAL_TESTS.md#mt-020-personal-impact-dashboard) | Stats builder is exercised through activity/impact tests; page render is still manual. | TBD |
-| F-021 | In-app feedback reporting | Authenticated users can submit bug/request/general feedback with page URL context. | ✅ | ⚠️ | `geoapp/tests.py::HealthAndFeedbackTests::test_feedback_submission_creates_entry` | [MT-021](MANUAL_TESTS.md#mt-021-in-app-feedback-submission) | Submission flow is covered; admin triage remains manual. | TBD |
-| F-022 | Role-aware TrashSite permissions | Creator/admin-only PATCH editing and admin-only invalidation are enforced. | ✅ | ⚠️ | `geoapp/tests.py::PermissionRoleTests` | [MT-022](MANUAL_TESTS.md#mt-022-role-aware-trashsite-permissions) | Current enforcement covers TrashSite edits/invalidation only. Route moderation is still future work. | TBD |
-| F-011 | Spatial model standards | UUIDs + `geography=True` + `srid=4326` + `[lng,lat]` convention. | ❌ | ⚠️ | N/A | [MT-011](MANUAL_TESTS.md#mt-011-geometry-convention-and-srid-sanity-check) | No automated schema/serialization convention test yet. | TBD |
-| F-012 | Server-side route distance computation | `distance_miles` persists non-zero for valid lines and scales with geometry length. | ✅ | ⚠️ | `geoapp/tests.py::RouteCleanupModelTests::test_distance_miles_is_computed_from_geometry` | [MT-012](MANUAL_TESTS.md#mt-012-route-distance-calculation-validation) | Good baseline; add multi-segment edge-case tests later. | TBD |
-| F-013 | Proof + photo evidence linkage | Proof and image references are returned and media URLs are accessible in DEBUG. | ❌ | ⚠️ | N/A | [MT-013](MANUAL_TESTS.md#mt-013-proofphoto-upload-and-retrieval) | Missing automated upload/media tests. | TBD |
-| F-014 | Authenticated API surface | All documented API endpoints return expected JSON shapes for logged-in users. | ✅ | ⚠️ | `geoapp/tests.py::ApiSurfaceContractTests` | [MT-014](MANUAL_TESTS.md#mt-014-api-surface-smoke-test) | Contract-shape coverage added for core GET endpoints. | TBD |
-| F-015 | API validation and error payloads | Invalid payloads return non-2xx with `{"error": ...}`. | ✅ | ⚠️ | `geoapp/tests.py::ApiValidationTests` | [MT-015](MANUAL_TESTS.md#mt-015-geometry-and-payload-validation-errors) | Covers invalid geometry and invalid status payload error contract. | TBD |
-| F-016 | Dockerized development stack | `docker compose up --build -d` yields healthy db + running web service. | ❌ | ⚠️ | N/A | [MT-016](MANUAL_TESTS.md#mt-016-docker-up-workflow) | Startup behavior currently validated manually only. | TBD |
-| F-017 | Local Python run + env config | Local server/test run works with env vars and PostGIS. | ⚠️ | ⚠️ | `geoapp/tests.py` (via `python manage.py test`) | [MT-017](MANUAL_TESTS.md#mt-017-local-python-run-workflow) | No automated test runner configured (pytest). Use Django test runner (`python manage.py test`). | TBD |
-| F-023 | Visual screenshot capture workflow | One command seeds demo data and exports desktop/mobile screenshots under `artifacts/screenshots/`. | ✅ | ⚠️ | `e2e/screenshot-gallery.spec.js`, `geoapp/management/commands/seed_screenshot_demo.py`, `scripts/capture-screenshots.ps1` | [MT-023](MANUAL_TESTS.md#mt-023-visual-screenshot-capture-workflow) | Uses a dedicated screenshot user and deterministic seed data to keep captures stable. | TBD |
-| F-018 | Runtime diagnostics and troubleshooting visibility | Logs + API/UI errors provide actionable debugging signals. | ✅ | ⚠️ | `geoapp/tests.py::HealthAndFeedbackTests::test_healthz_is_public_and_reports_ok` | [MT-018](MANUAL_TESTS.md#mt-018-diagnostics-and-error-visibility) | Health endpoint is automated; structured logs still need manual/operator review. | TBD |
+| ID | Feature | Auto Tests | Manual Tests | Test Locations | Notes |
+|---|---|---|---|---|---|
+| F-001 | Public / authenticated access control | ✅ | ⚠️ | `tests.py::PublicAccessTests`, `tests.py::AuthGateTests` | Map and read APIs are public; write endpoints require login. |
+| F-002 | Map initialization and district boundary | ⚠️ | ⚠️ | `e2e/map-smoke.spec.js` | Smoke covers map load; district boundary from API needs manual check. |
+| F-003 | Two-mode map UI | ❌ | ⚠️ | N/A | Frontend mode switching is manual-only. |
+| F-004 | Feature loading with bbox + filters | ✅ | ⚠️ | `tests.py::FeaturesFilterApiTests` | Covers bbox, status, days, and district filters. |
+| F-005 | Create TrashSite (point or polygon) | ✅ | ⚠️ | `tests.py::TrashSiteApiLifecycleTests`, `tests.py::TrashSitePolygonTests` | Point, GeoJSON point, polygon creation, and district auto-assignment. |
+| F-006 | View TrashSite details | ✅ | ⚠️ | `tests.py::TrashSiteApiLifecycleTests`, `tests.py::ApiSurfaceContractTests` | Detail API shape and public access verified. |
+| F-007 | Mark TrashSite cleaned with before/after photos | ✅ | ⚠️ | `tests.py::MarkCleanedApiTests` | Covers status change, proof creation, and photo type separation. |
+| F-008 | Edit TrashSite via PATCH | ✅ | ⚠️ | `tests.py::TrashSiteApiLifecycleTests` | Status transitions and cleaned_at management. |
+| F-009 | Public cleanups showcase | ✅ | ⚠️ | `tests.py::CleanupsPageTests` | Page render, API filtering, and pagination. |
+| F-010 | Admin management | ❌ | ⚠️ | N/A | Admin CRUD is manual-only. |
+| F-011 | In-app feedback | ✅ | ⚠️ | `tests.py::FeedbackTests` | Submission and validation covered. |
+| F-012 | Role-aware permissions | ✅ | ⚠️ | `tests.py::PermissionRoleTests` | Non-owner edit, non-admin invalidation, admin invalidation. |
+| F-013 | District model and API | ✅ | ⚠️ | `tests.py::DistrictModelTests`, `tests.py::DistrictApiTests` | Creation, spatial assignment, active filtering, API shape. |
+| F-014 | Rate limiting | ⚠️ | ⚠️ | N/A | Rate limits applied via decorators; most tests run with `RATELIMIT_ENABLE=False`. |
+| F-015 | IP ban middleware | ✅ | ⚠️ | `tests.py::IPBanMiddlewareTests` | Permanent ban, expired ban, future expiry, XFF header. |
+| F-016 | Photo upload validation | ✅ | ⚠️ | `tests.py::PhotoUploadValidationTests` | Count, size, and MIME type enforcement. |
+| F-017 | Spatial model standards | ⚠️ | ⚠️ | Implicit in lifecycle tests | SRID and coordinate order verified through API responses. |
+| F-018 | Proof + photo linkage | ✅ | ⚠️ | `tests.py::MarkCleanedApiTests`, `tests.py::ApiSurfaceContractTests` | Photo type grouping in detail response. |
+| F-019 | Accessibility features | ❌ | ⚠️ | N/A | ARIA attributes in templates; manual/screen reader testing required. |
+| F-020 | API surface | ✅ | ⚠️ | `tests.py::ApiSurfaceContractTests` | Shape validation for features, detail, cleanups, districts APIs. |
+| F-021 | API validation and errors | ✅ | ⚠️ | `tests.py::ApiValidationTests` | Invalid status, severity, coordinates, and GeoJSON type. |
+| F-022 | Dockerized dev stack | ❌ | ⚠️ | N/A | Manual Docker workflow only. |
+| F-023 | Signup flow | ✅ | ⚠️ | `tests.py::SignupTests` | Page render, user creation, redirect, auth guard. |
+| F-024 | Runtime diagnostics | ✅ | ⚠️ | `tests.py::PublicAccessTests` | Healthz endpoint automated. |

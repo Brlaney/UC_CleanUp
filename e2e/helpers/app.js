@@ -116,7 +116,7 @@ async function loginAndWaitForMap(page, baseUrl, username, password) {
   await page.fill('input[name="password"]', password);
 
   await Promise.all([
-    page.waitForURL(/\/map\/?$/),
+    page.waitForURL(/\/$/),
     page.click('button[type="submit"]'),
   ]);
 
@@ -125,7 +125,7 @@ async function loginAndWaitForMap(page, baseUrl, username, password) {
   expect(featuresResponse.status()).toBe(200);
 }
 
-async function openMapPage(page, baseUrl, path = "/map/") {
+async function openMapPage(page, baseUrl, path = "/") {
   const featuresResponsePromise = page.waitForResponse(
     (resp) => resp.url().includes("/api/features/") && resp.request().method() === "GET",
     { timeout: 20_000 }

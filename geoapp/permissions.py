@@ -22,5 +22,13 @@ def can_set_invalid_status(user):
     return is_admin(user)
 
 
+def can_submit_report(user):
+    return bool(user and user.is_authenticated)
+
+
+def can_submit_cleanup(user, site):
+    return bool(user and user.is_authenticated and site.status != TrashSite.Status.INVALID)
+
+
 def can_view_feedback_admin(user):
     return is_admin(user)

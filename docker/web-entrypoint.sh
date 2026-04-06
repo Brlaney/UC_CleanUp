@@ -9,6 +9,16 @@ done
 echo "Applying migrations..."
 python manage.py migrate --noinput
 
+echo "Seeding district data..."
+python manage.py seed_district \
+  --file static/data/putnam_county_boundary.geojson \
+  --name "Putnam County" \
+  --slug putnam-county || true
+python manage.py seed_district \
+  --file static/data/district_3_boundary.geojson \
+  --name "District 3" \
+  --slug district-3 || true
+
 if [ "${RUN_COLLECTSTATIC:-1}" = "1" ]; then
   echo "Collecting static files..."
   python manage.py collectstatic --noinput

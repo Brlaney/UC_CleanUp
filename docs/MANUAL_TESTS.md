@@ -1,307 +1,269 @@
 # Manual Test Scripts
 
-Repeatable manual scripts mapped 1:1 to `docs/QA_MATRIX.md`.
+Repeatable manual scripts mapped to `docs/QA_MATRIX.md`.
 
 ## Preconditions
 - Test environment has running PostGIS and Django app.
-- At least one valid login account exists.
-- For API tests, you are logged in through browser session or have session+CSRF cookies.
+- District 3 boundary is seeded (automatic on Docker startup).
+- For write-endpoint tests, you have a logged-in browser session.
 
-## MT-001 Authentication Required for Map and API
+## MT-001 Public Map Access
 Related feature: `F-001`
 
 Steps:
 1. Open a private/incognito browser window.
-2. Visit `/map/`.
-3. Visit `/api/features/` directly.
-4. Log in at `/accounts/login/`, then revisit `/map/`.
+2. Visit `/`.
+3. Visit `/cleanups/`.
+4. Visit `/api/features/`.
+5. Visit `/api/districts/`.
 
 Expected:
-- Unauthenticated requests redirect to login.
-- Authenticated user can access map and API.
+- All pages load without login.
+- Map shows district boundary and any existing features.
 
-## MT-002 Map Loads and Basemap UI
+## MT-002 Auth Gate on Write Endpoints
+Related feature: `F-001`
+
+Steps:
+1. Without logging in, click "Report Trash" on the map.
+2. Try to interact (place pin or draw area).
+3. Verify auth gate overlay appears.
+4. Log in at `/accounts/login/`.
+5. Retry the report action.
+
+Expected:
+- Unauthenticated users see auth gate overlay.
+- After login, report submission works.
+
+## MT-003 Map Initialization and District Boundary
 Related feature: `F-002`
 
 Steps:
-1. Log in.
-2. Open `/map/`.
-3. Confirm map container, side panel, and buttons render.
-4. Switch the county overlay to the six-county TN preset.
-5. Pan/zoom and verify map tiles load.
+1. Open `/`.
+2. Confirm map loads with district boundary polygon.
+3. Verify area outside district is masked/dimmed.
+4. Confirm map fits to district bounds.
 
 Expected:
-- Map opens near Putnam/Cookeville area.
-- Side controls and basemap are visible and usable.
-- The six-county overlay highlights `Smith`, `Jackson`, `Putnam`, `White`, `Van Buren`, and `Cumberland`.
-- Changing overlay presets keeps the cleanup features in place.
+- District boundary is visible and loaded from API.
+- Outside area has semi-transparent overlay.
 
-## MT-003 Browse/List Features with Filters
+## MT-004 Two-Mode Switching
 Related feature: `F-003`
 
 Steps:
-1. Ensure at least one trash site and one route exist.
-2. On `/map/`, toggle status checkboxes and click `Apply Filters`.
-3. Switch date range between `7`, `30`, and `all`.
-4. Pan to a different area and back.
+1. Open the map.
+2. Click "Report Trash" mode button.
+3. Verify report panel shows Place Pin / Draw Area buttons.
+4. Click "Cleanup Trash" mode button.
+5. Verify cleanup panel shows status filter chips.
 
 Expected:
-- Feature set updates after filter changes and map movement.
-- Hidden statuses are removed from current map rendering.
+- Mode buttons toggle `aria-pressed` state.
+- Panel content switches between report and cleanup modes.
+- Screen reader announces mode change.
 
-## MT-004 Create TrashSite Item
-Related feature: `F-004`
-
-Steps:
-1. Click `Report Trash`.
-2. Click a point on the map.
-3. Fill optional fields (title/description/severity/hazard).
-4. Attach one image and submit.
-
-Expected:
-- New marker appears.
-- Opening details shows entered fields and uploaded photo.
-
-## MT-005 View TrashSite Detail and Proofs
+## MT-005 Report Trash - Place Pin
 Related feature: `F-005`
 
 Steps:
-1. Click an existing trash marker.
-2. Confirm detail panel values (status/severity/hazard/description).
-3. Confirm proof history section and images render.
+1. Log in and select Report Trash mode.
+2. Click "Place Pin", then click on the map.
+3. Fill title, description, severity, hazard flag.
+4. Attach 1-3 photos and submit.
 
 Expected:
-- Detail panel populates from API and includes proof content.
+- New marker appears on map.
+- Toast notification confirms submission.
+- Detail shows entered fields and uploaded photos.
 
-## MT-006 Mark TrashSite Cleaned
+## MT-006 Report Trash - Draw Area
+Related feature: `F-005`
+
+Steps:
+1. Select Report Trash mode.
+2. Click "Draw Area" and draw a polygon on the map.
+3. Complete the polygon and fill the report form.
+4. Submit.
+
+Expected:
+- Polygon overlay and centroid marker appear.
+- Detail shows area geometry in response.
+
+## MT-007 View TrashSite Detail
 Related feature: `F-006`
 
 Steps:
-1. Open a `PENDING` trash site detail.
-2. Click `Mark Cleaned`.
-3. Enter note + bags_count, attach photo, submit.
-4. Reopen same marker detail.
+1. Click an existing trash marker.
+2. Confirm detail panel shows status, severity, description.
+3. Confirm photos are grouped into report/before/after sections.
+4. Confirm proof history is listed.
 
 Expected:
-- Status changes to `CLEANED`.
-- Cleanup proof appears with note, bags_count, and photo.
+- Detail populates from API with grouped photo display.
 
-## MT-007 Edit TrashSite via API (PATCH)
+## MT-008 Mark TrashSite Cleaned
 Related feature: `F-007`
 
 Steps:
-1. Capture a trash site ID from detail payload (or admin URL).
-2. Send PATCH to `/api/trash-sites/<id>/` with updated fields (for example status/title).
-3. Reload map and open that marker.
+1. In Cleanup mode, click a PENDING trash site marker.
+2. Click "Mark Cleaned".
+3. Upload before photo(s) and after photo(s).
+4. Enter note and bags count, submit.
+5. Recheck the marker.
 
 Expected:
-- API returns updated values.
-- Marker detail reflects updated fields.
+- Status changes to CLEANED.
+- Before/after photos appear in detail grouped correctly.
+- Site appears on `/cleanups/` page.
 
-## MT-008 Create RouteCleanup Item
+## MT-009 Edit TrashSite via PATCH
 Related feature: `F-008`
 
 Steps:
-1. Click `Log Cleanup Route`.
-2. Draw a polyline with at least 2 points.
-3. Fill notes/time and submit.
+1. Get a trash site ID from detail panel.
+2. Send PATCH to `/api/trash-sites/<id>/` with updated fields.
+3. Reload map and check that marker detail reflects changes.
 
 Expected:
-- New route line appears on map.
-- Route persists after refresh.
+- API returns updated values.
+- Status transitions manage `cleaned_at` correctly.
 
-## MT-009 Route Detail and Distance Display
+## MT-010 Public Cleanups Page
 Related feature: `F-009`
 
 Steps:
-1. Click a route line.
-2. Verify detail panel shows notes, time, and distance.
-3. Compare popup distance summary to detail distance.
+1. Open `/cleanups/` without logging in.
+2. Verify cleanup cards show title, severity, description, before/after photos.
+3. If more than 12 cleanups exist, verify pagination works.
 
 Expected:
-- Distance is displayed and greater than zero for valid non-trivial route.
+- Page is publicly accessible.
+- Before/after photo galleries render correctly.
 
-## MT-010 Admin CRUD and Delete Item
-Related feature: `F-010`
+## MT-011 Feature Filters
+Related feature: `F-004`
 
 Steps:
-1. Log in as superuser at `/admin/`.
-2. Open TrashSite or RouteCleanup list.
-3. Edit a record and save.
-4. Delete a record via admin.
-5. Return to `/map/` and refresh features.
+1. On the map, apply status filter (e.g., CLEANED only).
+2. Switch date range between 7 days, 30 days, all.
+3. Pan to a different area and back.
 
 Expected:
-- Record updates are saved.
-- Deleted record no longer appears on map.
+- Feature set updates after filter changes and map movement.
+- Only matching features are displayed.
 
-## MT-011 Geometry Convention and SRID Sanity Check
-Related feature: `F-011`
-
-Steps:
-1. Create one trash site and one route.
-2. Open detail JSON endpoints.
-3. Verify coordinate order is `[lng, lat]` in returned payloads.
-4. In admin GIS map, verify locations render in expected area (Putnam County vicinity).
-
-Expected:
-- Coordinates are consistently `[lng, lat]`.
-- Geometry renders in the expected map region.
-
-## MT-012 Route Distance Calculation Validation
-Related feature: `F-012`
-
-Steps:
-1. Draw a short route (2-3 points).
-2. Save route and read `distance_miles` in route detail.
-3. Draw a noticeably longer route and save.
-4. Compare distances.
-
-Expected:
-- Longer route has larger `distance_miles`.
-- Distances are non-zero for valid lines.
-
-## MT-013 Proof/Photo Upload and Retrieval
-Related feature: `F-013`
-
-Steps:
-1. Upload photo while creating a trash site or marking cleaned.
-2. Open detail panel and verify image is shown.
-3. Open image URL in new browser tab.
-
-Expected:
-- Image URL resolves and image loads.
-- Proof references are visible in detail payload/UI.
-
-## MT-014 API Surface Smoke Test
-Related feature: `F-014`
-
-Steps:
-1. Hit each implemented endpoint with authenticated session:
-   - `/api/features/`
-   - `/api/trash-sites/<id>/`
-   - `/api/trash-sites/<id>/detail/`
-   - `/api/route-cleanups/<id>/detail/`
-2. Validate status code and minimal shape of response.
-
-Expected:
-- Endpoints return 2xx for valid authenticated requests.
-- Combined features payload includes both `trash_site` and `route_cleanup` types (when data exists).
-
-## MT-015 Geometry and Payload Validation Errors
-Related feature: `F-015`
-
-Steps:
-1. POST `/api/route-cleanups/` with invalid coordinates (`[]` or one point).
-2. POST `/api/trash-sites/` with invalid severity.
-3. PATCH trash site with invalid status.
-
-Expected:
-- Server returns non-2xx with JSON body containing `error`.
-
-## MT-016 Docker Up Workflow
-Related feature: `F-016`
-
-Steps:
-1. Run `docker compose up --build -d`.
-2. Check `docker ps`.
-3. Check web logs.
-4. Open app in browser.
-
-Expected:
-- `db` is healthy and `web` is running.
-- Web logs show migrations and server startup.
-
-## MT-017 Local Python Run Workflow
-Related feature: `F-017`
-
-Steps:
-1. Start DB only: `docker compose up -d db`.
-2. Activate venv and install requirements.
-3. Set env vars from `.env.example`.
-4. Run `python manage.py migrate` then `python manage.py runserver`.
-5. Run `python manage.py test`.
-
-Expected:
-- Local server starts and app is reachable.
-- Django test suite runs with no import/runtime errors.
-
-## MT-023 Visual Screenshot Capture Workflow
+## MT-012 Signup Flow
 Related feature: `F-023`
 
 Steps:
-1. Run `powershell -ExecutionPolicy Bypass -File scripts/capture-screenshots.ps1`.
-2. Wait for the script to finish Docker startup, migration, seed, and Playwright capture.
-3. Open `artifacts/screenshots/desktop-wide/` and `artifacts/screenshots/iphone-14/`.
-4. Verify `map-overview.png`, `map-trash-focus.png`, `map-route-focus.png`, `updates.png`, and `impact.png` exist.
+1. Visit `/accounts/signup/`.
+2. Create a new account.
+3. Verify redirect to map and auto-login.
+4. While logged in, visit `/accounts/signup/` again.
 
 Expected:
-- Screenshot folders are created for desktop and phone profiles.
-- Images show logged-in app pages without obvious broken rendering or blank map output.
+- New account is created and user is logged in.
+- Already-authenticated users are redirected to `/`.
 
-## MT-018 Diagnostics and Error Visibility
-Related feature: `F-018`
-
-Steps:
-1. Trigger a known API validation error (for example MT-015 step 1).
-2. In browser, attempt invalid action and observe UI feedback.
-3. Inspect `docker compose logs web`.
-
-Expected:
-- API returns readable JSON error.
-- UI shows failure signal (alert or detail text).
-- Logs capture request/response context for debugging.
-
-## MT-019 Activity Updates Feed
-Related feature: `F-019`
-
-Steps:
-1. Create a trash site.
-2. Mark a site cleaned.
-3. Log a cleanup route.
-4. Open `/updates/`.
-5. Click an `Open on map` link from one activity card.
-
-Expected:
-- Updates page shows recent events in newest-first order.
-- Clicking an entry opens `/map/` and focuses the related site or route.
-
-## MT-020 Personal Impact Dashboard
-Related feature: `F-020`
-
-Steps:
-1. Log in as a user with at least one report, cleanup proof, and route.
-2. Open `/impact/`.
-3. Compare displayed totals to known records in admin or recent actions.
-
-Expected:
-- Impact page shows totals for reports, cleanups, bags, routes, miles, and minutes.
-- Numbers are plausible for the current user only.
-
-## MT-021 In-App Feedback Submission
-Related feature: `F-021`
-
-Steps:
-1. Log in and open any authenticated page.
-2. Click `Report Issue / Request` in the top bar.
-3. Submit one `BUG` and one `REQUEST`.
-4. Open `/admin/` and inspect `Feedback entries`.
-
-Expected:
-- Feedback modal submits successfully.
-- Each entry stores type, message, user, and current page URL.
-- Admin can review feedback later.
-
-## MT-022 Role-Aware TrashSite Permissions
-Related feature: `F-022`
+## MT-013 Role-Aware Permissions
+Related feature: `F-012`
 
 Steps:
 1. Create a trash site as User A.
-2. Log in as User B and try to edit that site through the PATCH API.
-3. Log in as User A and try to set the site to `INVALID`.
-4. Log in as an admin-role user and set the site to `INVALID`.
+2. Log in as User B and try PATCH on User A's site.
+3. Log in as User A and try setting status to INVALID.
+4. Log in as admin user and set status to INVALID.
 
 Expected:
-- User B receives a 403 when editing User A's site.
-- User A receives a 403 when attempting invalidation.
-- Admin-role user can invalidate the site successfully.
+- Non-owner gets 403 on PATCH.
+- Non-admin gets 403 on invalidation.
+- Admin can invalidate.
+
+## MT-014 Feedback Submission
+Related feature: `F-011`
+
+Steps:
+1. Log in and click "Feedback" in the top bar.
+2. Submit a BUG type feedback with message.
+3. Check admin for the created entry.
+
+Expected:
+- Feedback modal submits successfully.
+- Entry stored with type, message, user, and page URL.
+
+## MT-015 IP Ban Enforcement
+Related feature: `F-015`
+
+Steps:
+1. Add an IP ban via Django admin.
+2. Attempt to access any page from that IP.
+3. Set an expiry in the past and retry.
+
+Expected:
+- Active ban returns 403 JSON response.
+- Expired ban allows access.
+
+## MT-016 Photo Upload Limits
+Related feature: `F-016`
+
+Steps:
+1. Try uploading 6 photos in a report form.
+2. Try uploading a file over 10 MB.
+3. Try uploading a non-image file (e.g., PDF).
+
+Expected:
+- Server rejects with appropriate error message.
+
+## MT-017 Docker Startup
+Related feature: `F-022`
+
+Steps:
+1. Run `docker compose up --build -d`.
+2. Check `docker ps` for healthy db + running web.
+3. Check web logs for migrations, district seed, and server start.
+4. Open app in browser.
+
+Expected:
+- Stack boots cleanly with district data auto-seeded.
+
+## MT-018 Accessibility Checks
+Related feature: `F-019`
+
+Steps:
+1. Tab through the page and verify skip-to-content link works.
+2. Open a modal (report or feedback) and verify focus is trapped.
+3. Press Escape to close modal and verify focus returns.
+4. Use a screen reader to verify mode change announcements.
+5. Check color contrast with a browser dev tools audit.
+
+Expected:
+- Focus management works correctly in all modals.
+- ARIA live regions announce dynamic content changes.
+- Colors meet WCAG 2.1 AA contrast requirements.
+
+## MT-019 API Surface Smoke Test
+Related feature: `F-020`
+
+Steps:
+1. Hit each endpoint and verify response shape:
+   - `GET /api/features/` - FeatureCollection with features array
+   - `GET /api/districts/` - districts array with geometry
+   - `GET /api/trash-sites/<id>/detail/` - site with photos/proofs/permissions
+   - `GET /api/cleanups/` - paginated results with count/page/num_pages
+   - `GET /healthz` - ok + database status
+
+Expected:
+- All return 200 with documented JSON shapes.
+
+## MT-020 Mobile Viewport
+Related feature: `F-003`
+
+Steps:
+1. Open map at 375px width (or phone device emulation).
+2. Test mode switching, report submission, and cleanup flow.
+3. Verify modals are usable on small screens.
+
+Expected:
+- All interactions work on mobile viewport.
+- Modals are scrollable and dismissible.

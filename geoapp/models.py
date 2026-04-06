@@ -30,6 +30,23 @@ def _line_length_meters(linestring):
     return distance
 
 
+class District(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=100, unique=True)
+    geometry = models.MultiPolygonField(geography=True, srid=4326, spatial_index=True)
+    active = models.BooleanField(default=True, db_index=True)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class Profile(models.Model):
     class Role(models.TextChoices):
         MEMBER = "MEMBER", "Member"
@@ -62,6 +79,10 @@ class TrashSite(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
     location = models.PointField(geography=True, srid=4326, spatial_index=True)
+    area = models.PolygonField(geography=True, srid=4326, spatial_index=True, null=True, blank=True)
+    district = models.ForeignKey(
+        District, on_delete=models.SET_NULL, null=True, blank=True, related_name="trash_sites"
+    )
     title = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
     severity = models.CharField(max_length=10, choices=Severity.choices, blank=True)
@@ -130,9 +151,15 @@ class CleanupProof(models.Model):
 
 
 class Photo(models.Model):
+    class PhotoType(models.TextChoices):
+        REPORT = "REPORT", "Report"
+        BEFORE = "BEFORE", "Before"
+        AFTER = "AFTER", "After"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     image = models.ImageField(upload_to="proof_photos/%Y/%m/%d")
     proof = models.ForeignKey(CleanupProof, on_delete=models.CASCADE, related_name="photos")
+    photo_type = models.CharField(max_length=10, choices=PhotoType.choices, default=PhotoType.REPORT, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -193,3 +220,19 @@ class FeedbackEntry(models.Model):
 
     def __str__(self):
         return f"{self.feedback_type} from {self.created_by}"
+
+
+class IPBan(models.Model):
+    ip_address = models.GenericIPAddressField(unique=True, db_index=True)
+    reason = models.CharField(max_length=255, blank=True)
+    banned_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="ip_bans_created"
+    )
+
+    class Meta:
+        ordering = ["-banned_at"]
+
+    def __str__(self):
+        return f"Ban {self.ip_address}"

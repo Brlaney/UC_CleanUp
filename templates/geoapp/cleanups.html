@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Cleanups - District 3 CleanUp{% endblock %}
+
+{% block content %}
+<section class="content-shell content-shell--feed">
+    <div class="page-intro">
+        <span class="section-kicker">Community Impact</span>
+        <h1>Completed Cleanups</h1>
+        <p>See the difference volunteers are making in District 3. Every cleanup counts.</p>
+    </div>
+
+    {% if items %}
+        <div class="cleanup-grid">
+            {% for item in items %}
+            <article class="cleanup-card">
+                <div class="cleanup-card-header">
+                    <h2 class="cleanup-card-title">{{ item.title }}</h2>
+                    {% if item.severity %}
+                        <span class="detail-badge badge--{{ item.severity|lower }}">{{ item.severity }}</span>
+                    {% endif %}
+                </div>
+                {% if item.description %}
+                    <p class="cleanup-card-desc">{{ item.description }}</p>
+                {% endif %}
+                <div class="cleanup-card-meta">
+                    <span>Cleaned by <strong>{{ item.created_by }}</strong></span>
+                    {% if item.cleaned_at %}
+                        <span>{{ item.cleaned_at|date:"M j, Y" }}</span>
+                    {% endif %}
+                    {% if item.bags_total %}
+                        <span>{{ item.bags_total }} bag{{ item.bags_total|pluralize }}</span>
+                    {% endif %}
+                </div>
+                {% if item.photos.before or item.photos.after %}
+                    <div class="before-after-gallery">
+                        {% if item.photos.before %}
+                            <div class="gallery-column">
+                                <h3 class="gallery-label">Before</h3>
+                                <div class="gallery-photos">
+                                    {% for url in item.photos.before %}
+                                        <img src="{{ url }}" alt="Before cleanup photo" loading="lazy">
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                        {% if item.photos.after %}
+                            <div class="gallery-column">
+                                <h3 class="gallery-label">After</h3>
+                                <div class="gallery-photos">
+                                    {% for url in item.photos.after %}
+                                        <img src="{{ url }}" alt="After cleanup photo" loading="lazy">
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+                {% if item.photos.report %}
+                    <div class="gallery-column">
+                        <h3 class="gallery-label">Report photos</h3>
+                        <div class="gallery-photos">
+                            {% for url in item.photos.report %}
+                                <img src="{{ url }}" alt="Report photo" loading="lazy">
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            </article>
+            {% endfor %}
+        </div>
+
+        {% if page_obj.has_other_pages %}
+            <nav class="pagination" aria-label="Cleanup pages">
+                {% if page_obj.has_previous %}
+                    <a class="btn btn-subtle btn-compact" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                {% endif %}
+                <span class="pagination-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                {% if page_obj.has_next %}
+                    <a class="btn btn-subtle btn-compact" href="?page={{ page_obj.next_page_number }}">Next</a>
+                {% endif %}
+            </nav>
+        {% endif %}
+    {% else %}
+        <div class="empty-state">
+            <h2>No cleanups yet</h2>
+            <p>Be the first! <a href="{% url 'map' %}">Open the map</a> and mark a trash site as cleaned.</p>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

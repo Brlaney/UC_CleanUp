@@ -1,214 +1,210 @@
 # Current Features (As-Is)
 
-This file documents implemented behavior in the current codebase only.  
-Future ideas and design planning are tracked separately in `docs/UI_ROADMAP.md`.
+This file documents implemented behavior in the current codebase only.
 
 ## Core User Flows
 
-### F-001 Authenticated Access Control
-- Django auth is enabled at `/accounts/login/`.
-- Root path `/` redirects to `/map/`.
-- Map, updates, impact, and private API endpoints are protected with `@login_required`.
-- Logout is available in the top bar.
+### F-001 Public / Authenticated Access Control
+- Map (`/`) and cleanups page (`/cleanups/`) are publicly accessible.
+- Public JSON endpoints: `/api/features/`, `/api/districts/`, `/api/trash-sites/<id>/detail/`, `/api/cleanups/`.
+- Write endpoints require login: `POST /api/trash-sites/`, `PATCH /api/trash-sites/<id>/`, `POST mark-cleaned`, `POST feedback`.
+- Signup available at `/accounts/signup/`; login at `/accounts/login/`.
 - Done when:
-  - Unauthenticated users are redirected to login for protected HTML routes and `/api/...`.
-  - Authenticated users can access map and API.
+  - Unauthenticated users can view map, features, and cleanups.
+  - Write operations redirect to login when unauthenticated.
 
-### F-002 Map Initialization and Basemap UX
-- `/map/` renders a full map view using Leaflet.
-- Map default center is near Cookeville (`[36.1627, -85.5016]`) with zoom 12.
-- OpenStreetMap tiles are loaded.
-- County boundary overlays support Putnam-only, a six-county TN preset (`Smith`, `Jackson`, `Putnam`, `White`, `Van Buren`, `Cumberland`), full Upper Cumberland, and custom county selection.
-- Side panel includes filters, actions, and detail area.
+### F-002 Map Initialization and District Boundary
+- `/` renders a full Leaflet map view.
+- District boundary is loaded dynamically from `/api/districts/` API (not a static file).
+- Outside-district area is masked with a semi-transparent overlay.
+- Map fits bounds to the active district on load.
 - Done when:
-  - Logged-in user sees map, controls, and basemap tiles.
-  - Changing county overlay presets swaps the highlighted boundaries without clearing cleanup overlays.
+  - Public user sees map with district boundary overlay and masked exterior.
 
-### F-003 Shared Feature Loading with BBox + Filters
+### F-003 Two-Mode Map UI
+- Mode switcher at top of control panel: **Report Trash** / **Cleanup Trash**.
+- **Report mode**: Place Pin or Draw Area sub-modes.
+  - Place Pin: click map to set a point location.
+  - Draw Area: activate leaflet-draw polygon tool.
+- **Cleanup mode**: click existing markers to view detail and mark cleaned.
+  - Status filter chips (Pending / In Progress / Cleaned).
+- Auth gate overlay appears when unauthenticated user attempts to interact.
+- Done when:
+  - Mode switching updates panel, ARIA states, and map interaction behavior.
+  - Auth gate blocks submissions for anonymous users.
+
+### F-004 Feature Loading with BBox + Filters
 - Frontend requests `GET /api/features/` using:
   - `bbox=minLng,minLat,maxLng,maxLat`
   - `status` CSV
   - `days` (`7`, `30`, `all`)
-- Features reload on map `moveend` and `zoomend`.
-- Backend returns one `FeatureCollection` with both point and line features.
+  - `district` slug
+- Features reload on map `moveend`.
+- Backend returns `FeatureCollection` with trash site point features.
 - Done when:
-  - Moving map or applying filters updates rendered points/lines.
+  - Moving map or applying filters updates rendered markers.
 
-### F-004 Create TrashSite from Map
-- User clicks `Report Trash`, then clicks map to set point.
+### F-005 Create TrashSite (Point or Polygon)
+- Report mode: click map for point, or draw polygon for area report.
+- Polygon reports auto-compute centroid for the location field.
 - Modal form posts multipart data to `POST /api/trash-sites/`.
-- Optional fields: title, description, severity, hazard flag, photos.
-- New site is created with default status `PENDING`.
+- Optional fields: title, description, severity, hazard flag, photos (max 5).
+- District is auto-assigned via spatial query.
 - Done when:
-  - New marker appears after submit and persists on refresh.
+  - New marker appears after submit. Area reports show polygon overlay.
 
-### F-005 View TrashSite Details and Proof History
+### F-006 View TrashSite Details
 - Clicking a trash marker loads detail from `GET /api/trash-sites/<id>/detail/`.
-- Detail panel shows status, severity, hazard flag, description, and proofs.
-- Proof photos are displayed in detail panel.
+- Detail panel shows status, severity, hazard flag, description, photos grouped by type (report/before/after), and proof history.
 - Done when:
-  - Marker click loads full detail including proof list and image thumbnails.
+  - Marker click loads full detail with grouped photos and proof list.
 
-### F-006 Mark TrashSite Cleaned with Proof
+### F-007 Mark TrashSite Cleaned with Before/After Photos
 - `Mark Cleaned` action posts to `POST /api/trash-sites/<id>/mark-cleaned/`.
-- Creates `CleanupProof` with note, bag count, optional photos.
+- Creates `CleanupProof` with note, bag count, before photos, and after photos.
 - Sets `TrashSite.status = CLEANED` and `cleaned_at = now`.
+- Before/after photos are stored with separate `photo_type` values.
 - Done when:
-  - Marker color/status updates to cleaned and proof appears in details.
+  - Marker status updates to cleaned. Proof with before/after photos appears in detail.
 
-### F-007 Edit TrashSite via PATCH API
+### F-008 Edit TrashSite via PATCH API
 - `PATCH /api/trash-sites/<id>/` supports updates for:
-  - `status`
-  - `title`
-  - `description`
-  - `severity`
-  - `hazard_flag`
+  - `status`, `title`, `description`, `severity`, `hazard_flag`
 - Cleaning timestamp is managed based on status transitions.
 - Done when:
   - PATCH updates fields and response reflects updated values.
 
-### F-008 Create RouteCleanup Polyline
-- `Log Cleanup Route` enables leaflet-draw polyline mode.
-- Drawn line coordinates are submitted to `POST /api/route-cleanups/`.
-- Optional fields: notes, time_spent_minutes, photos.
+### F-009 Public Cleanups Showcase
+- `/cleanups/` displays completed cleanups with before/after photo galleries.
+- `GET /api/cleanups/` returns paginated cleaned sites with grouped photos.
 - Done when:
-  - Saved route appears on map after submit.
+  - Public visitors can browse completed cleanups without login.
 
-### F-009 View RouteCleanup Details
-- Clicking route line loads detail from `GET /api/route-cleanups/<id>/detail/`.
-- Detail panel shows notes, status, time spent, and distance in miles.
+### F-010 Admin Management
+- Django admin enabled for `District`, `TrashSite`, `CleanupProof`, `Photo`, `Profile`, `ActivityLog`, `FeedbackEntry`, `IPBan`.
+- GIS admin used for spatial models.
 - Done when:
-  - Route click shows detail and distance value.
+  - Admin user can manage all records.
 
-### F-010 Admin Management (Including Delete)
-- Django admin is enabled for `TrashSite`, `RouteCleanup`, `CleanupProof`, `Photo`, `Profile`, `ActivityLog`, and `FeedbackEntry`.
-- GIS admin is used for spatial models.
-- Admin supports edit/search/filter and delete operations.
+### F-011 In-App Feedback Reporting
+- Authenticated users submit `BUG`, `REQUEST`, or `GENERAL` feedback from top bar modal.
+- Stored in `FeedbackEntry`.
 - Done when:
-  - Admin user can create/edit/delete records and map reflects deletions.
+  - Feedback submits without leaving the app.
 
-### F-019 Activity Updates Feed
-- `/updates/` shows recent activity across reports, cleanup proofs, and route logging.
-- `GET /api/activity/` returns paginated activity entries with map focus metadata.
-- Activity cards link back to `/map/` with `focus_type` and `focus_id` query parameters.
-- Done when:
-  - Logged-in user can open `/updates/`, see recent events, and jump to the relevant map feature.
-
-### F-020 Personal Impact Dashboard
-- `/impact/` shows contribution totals for the current user.
-- Totals include:
-  - reported sites
-  - cleaned sites
-  - bags collected
-  - logged routes
-  - route miles
-  - minutes logged
-- Done when:
-  - Logged-in user can open `/impact/` and see their contribution summary.
-
-### F-021 In-App Feedback Reporting
-- Authenticated users can submit `BUG`, `REQUEST`, or `GENERAL` feedback from the top bar modal.
-- Feedback is stored in `FeedbackEntry` and managed through Django admin.
-- Submitted feedback includes free-text message and current page URL.
-- Done when:
-  - Logged-in user can send feedback without leaving the app and admins can review it later.
-
-### F-022 Role-Aware TrashSite Permissions
+### F-012 Role-Aware TrashSite Permissions
 - `Profile` records support `MEMBER` and `ADMIN` roles.
-- TrashSite PATCH editing is limited to creator or admin.
-- Setting TrashSite status to `INVALID` is limited to admins.
-- Marking a site cleaned remains available to authenticated users unless the site is already `INVALID`.
+- TrashSite PATCH editing limited to creator or admin.
+- Setting status to `INVALID` limited to admins.
+- Marking cleaned available to any authenticated user unless site is `INVALID`.
 - Done when:
-  - Unauthorized edits are rejected with 403 JSON errors.
-  - Admin-only invalidation is enforced.
+  - Unauthorized edits rejected with 403.
+
+## District Abstraction
+
+### F-013 District Model and API
+- `District` model stores name, slug, MultiPolygon geometry, active flag.
+- `GET /api/districts/` returns active districts with GeoJSON geometry.
+- Trash sites auto-assigned to districts via `geometry__covers` spatial query.
+- Designed for future multi-district support.
+- Done when:
+  - District boundary loads from API. Sites are assigned to districts on creation.
+
+## Security and Anti-Abuse
+
+### F-014 Rate Limiting
+- `django-ratelimit` decorators on all API endpoints.
+- Per-IP limits on read endpoints; per-user limits on write endpoints.
+- Optional Redis backend via `REDIS_URL`; defaults to in-memory cache.
+- Done when:
+  - Exceeding rate limits returns 403.
+
+### F-015 IP Ban Middleware
+- `IPBanMiddleware` checks every request against `IPBan` table.
+- Supports permanent bans (null expiry) and temporary bans with expiry.
+- Uses `X-Forwarded-For` header with fallback to `REMOTE_ADDR`.
+- Done when:
+  - Banned IPs receive 403. Expired bans are ignored.
+
+### F-016 Photo Upload Validation
+- Server-side validation: max 5 files, 10 MB each, image MIME types only (JPEG, PNG, WebP, HEIC).
+- Applied on report creation and cleanup proof submission.
+- Done when:
+  - Oversized, over-count, or wrong-type uploads are rejected.
 
 ## Data + Geometry Rules
 
-### F-011 Spatial Model Standards
-- Spatial fields:
-  - `TrashSite.location` = `PointField(geography=True, srid=4326)`
-  - `RouteCleanup.geometry` = `LineStringField(geography=True, srid=4326)`
-- UUID primary keys are used for domain models.
-- Spatial indexes are enabled on geometry fields.
-- Coordinate convention is `[lng, lat]`.
+### F-017 Spatial Model Standards
+- `TrashSite.location` = `PointField(geography=True, srid=4326)`
+- `TrashSite.area` = `PolygonField(geography=True, srid=4326)` (optional)
+- `District.geometry` = `MultiPolygonField(geography=True, srid=4326)`
+- UUID primary keys on domain models.
+- Coordinate convention: `[lng, lat]`.
 - Done when:
-  - Stored and returned geometry consistently uses SRID 4326 and `[lng, lat]`.
+  - All geometry uses SRID 4326 and `[lng, lat]` order.
 
-### F-012 Server-Side Route Distance Calculation
-- `RouteCleanup.save()` computes line length in meters using Haversine segment sum.
-- Conversion uses `distance_miles = meters * 0.000621371`.
-- Distance recalculates on save when geometry is present.
+### F-018 Proof + Photo Evidence Linkage
+- `CleanupProof` attaches to `TrashSite`.
+- `Photo` attaches to `CleanupProof` with `photo_type` (REPORT/BEFORE/AFTER).
 - Done when:
-  - Persisted routes have non-zero `distance_miles` for valid multi-point lines.
+  - Photos are grouped by type in detail responses.
 
-### F-013 Proof + Photo Evidence Linkage
-- `CleanupProof` attaches to either `TrashSite` or `RouteCleanup`.
-- `Photo` attaches to `CleanupProof`.
-- Upload storage uses local `MEDIA_ROOT`; URLs exposed via serializers.
+## Accessibility
+
+### F-019 Accessibility Features
+- Skip-to-content link.
+- ARIA roles on all modals (`role="dialog"`, `aria-modal="true"`).
+- Focus trap and return on modal open/close.
+- `aria-live` regions for toasts, detail panel, and mode instructions.
+- WCAG 2.1 AA color contrast compliance.
+- Keyboard navigable map controls.
 - Done when:
-  - Uploaded images are retrievable and visible in detail views.
+  - Screen reader announces mode changes, submissions, and errors.
+  - Tab navigation works within modals without escaping.
 
 ## API
 
-### F-014 Authenticated API Surface
-- Implemented JSON routes:
+### F-020 API Surface
+- Public endpoints:
   - `GET /healthz`
-  - `GET /api/features/`
-  - `GET /api/activity/`
-  - `POST /api/feedback/`
-  - `POST /api/trash-sites/`
-  - `GET|PATCH /api/trash-sites/<id>/`
+  - `GET /api/features/?bbox=&status=&days=&district=`
+  - `GET /api/districts/`
   - `GET /api/trash-sites/<id>/detail/`
+  - `GET /api/cleanups/?page=&page_size=`
+- Authenticated endpoints:
+  - `POST /api/trash-sites/`
+  - `PATCH /api/trash-sites/<id>/`
   - `POST /api/trash-sites/<id>/mark-cleaned/`
-  - `POST /api/route-cleanups/`
-  - `GET /api/route-cleanups/<id>/`
-  - `GET /api/route-cleanups/<id>/detail/`
-- Combined feature response includes `properties.type` (`trash_site` or `route_cleanup`).
+  - `POST /api/feedback/`
 - Done when:
-  - Endpoints return expected payloads for authenticated user sessions.
+  - All endpoints return expected JSON shapes.
 
-### F-015 API Validation and Error Payloads
-- Invalid inputs return JSON errors (e.g., invalid severity, bad coordinates, invalid status).
-- Route creation validates minimum coordinate count and GeoJSON line type.
+### F-021 API Validation and Error Payloads
+- Invalid inputs return JSON errors (invalid severity, bad coordinates, invalid status).
+- Photo validation enforced on upload endpoints.
 - Done when:
-  - Invalid requests return non-2xx with an `{"error": ...}` payload.
+  - Invalid requests return non-2xx with `{"error": ...}`.
 
 ## Dev/Ops
 
-### F-016 Dockerized Development Stack
-- `docker-compose.yml` includes:
-  - `db` (`postgis/postgis:16-3.4`)
-  - `web` (Django app image with GDAL/GEOS/PROJ installed)
-- Entry point waits for DB, runs migrations, optionally collects static files, then starts:
-  - Django `runserver` in debug
-  - Gunicorn when `DEBUG=0`
-- Host web port is configurable with `WEB_PORT`.
+### F-022 Dockerized Development Stack
+- `docker-compose.yml`: `db` (PostGIS 16) + `web` (Django with GDAL/GEOS/PROJ).
+- Entrypoint waits for DB, runs migrations, seeds district data, collects static, starts server.
 - Done when:
-  - `docker compose up --build -d` boots healthy DB + running web app.
+  - `docker compose up --build -d` boots healthy stack with seeded district.
 
-### F-017 Local Python Runtime + Config
-- Settings are environment-driven for DB/auth/static/media/security/storage.
-- Local media served in DEBUG mode.
-- Object storage is supported via S3-compatible settings for production media.
-- Database config supports `DATABASE_URL` as well as individual `POSTGRES_*` variables.
-- Django test suite exists via `python manage.py test`.
-- No pytest configuration is present in the repo.
+### F-023 Signup Flow
+- `/accounts/signup/` with Django `UserCreationForm`.
+- Auto-login after successful registration, redirect to map.
+- Authenticated users redirected away from signup page.
 - Done when:
-  - Local run works with env vars and `manage.py test` executes.
+  - New users can register and immediately use the app.
 
-### F-023 Visual Screenshot Capture Workflow
-- Playwright can capture a repeatable screenshot gallery for desktop and mobile form factors.
-- `python manage.py seed_screenshot_demo` creates deterministic demo records and a dedicated screenshot user.
-- `scripts/capture-screenshots.ps1` starts the Docker stack, runs migrations, seeds demo data, and writes screenshots to `artifacts/screenshots/`.
+## Observability
+
+### F-024 Runtime Diagnostics
+- `GET /healthz` reports application/database readiness.
+- API errors return explicit JSON.
+- Frontend uses toast notifications for success/error feedback.
 - Done when:
-  - One command produces current screenshots for desktop and phone-sized layouts without manual browser resizing.
-
-## Observability / Troubleshooting
-
-### F-018 Runtime Diagnostics and Error Visibility
-- Container startup logs show DB wait, migration run, static collection, and server start.
-- API errors are explicit JSON (`{"error": ...}`).
-- Frontend surfaces request failures in alert dialogs or detail panel text.
-- `GET /healthz` reports basic application/database readiness.
-- Done when:
-  - Failures are visible to developers/users without attaching a debugger.
+  - Failures visible without debugger.

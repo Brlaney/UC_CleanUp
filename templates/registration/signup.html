@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up - District 3 CleanUp{% endblock %}
+
+{% block content %}
+<section class="auth-wrap">
+    <h1>Create an Account</h1>
+    <p>Sign up to report trash and log cleanup efforts in District 3.</p>
+    <form method="post" class="auth-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="btn btn-primary" type="submit">Sign up</button>
+    </form>
+    <p class="auth-link">Already have an account? <a href="{% url 'login' %}">Log in</a></p>
+</section>
+{% endblock %}

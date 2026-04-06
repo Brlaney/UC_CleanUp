@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block title %}Map - Upper-Cumberland CleanUp{% endblock %}
+
 {% block extra_head %}
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
@@ -9,239 +11,144 @@
 
 {% block content %}
 <section class="map-shell">
-    <aside class="control-panel">
+    <aside class="control-panel" aria-label="Map controls">
         <div class="control-panel-main">
             <div class="panel-hero">
-                <span class="section-kicker">Flagship View</span>
-                <h1>Upper Cumberland CleanUp Map</h1>
-                <p>Report litter, review cleanup progress, and track volunteer routes across Putnam County and the broader Upper Cumberland.</p>
+                <h1>Upper-Cumberland CleanUp</h1>
+                <p>Report trash and help organize cleanup efforts in your community.</p>
             </div>
 
-            <section class="panel-section">
-                <div class="section-header">
-                    <div>
-                        <h2>Filters</h2>
-                        <p>Control what appears in the current map view.</p>
-                    </div>
+            <!-- Mode switcher -->
+            <section class="panel-section mode-switcher-section">
+                <div class="mode-switcher" role="group" aria-label="Map mode">
+                    <button class="btn btn-mode btn-mode--report is-active" id="mode-report-btn" type="button" aria-pressed="true">Report Trash</button>
+                    <button class="btn btn-mode btn-mode--cleanup" id="mode-cleanup-btn" type="button" aria-pressed="false">Cleanup Trash</button>
                 </div>
+                <div id="mode-instructions" class="mode-instructions" aria-live="polite"></div>
+            </section>
+
+            <!-- Report mode controls -->
+            <section class="panel-section report-mode-panel" id="report-mode-panel">
+                <h2>Report a Site</h2>
+                <p>Choose how to mark the location of the trash.</p>
+                <div class="button-row">
+                    <button class="btn btn-primary" id="place-pin-btn" type="button">Place Pin</button>
+                    <button class="btn btn-secondary" id="draw-area-btn" type="button">Draw Area</button>
+                </div>
+            </section>
+
+            <!-- Cleanup mode controls -->
+            <section class="panel-section cleanup-mode-panel hidden" id="cleanup-mode-panel">
+                <h2>Find a Cleanup</h2>
+                <p>Click on any active trash report to view details and start a cleanup.</p>
                 <div class="status-filter-list">
                     <label class="toggle-chip">
                         <input type="checkbox" name="status" value="PENDING" checked>
                         <span>Pending</span>
                     </label>
                     <label class="toggle-chip">
-                        <input type="checkbox" name="status" value="IN_PROGRESS">
+                        <input type="checkbox" name="status" value="IN_PROGRESS" checked>
                         <span>In Progress</span>
                     </label>
                     <label class="toggle-chip">
-                        <input type="checkbox" name="status" value="CLEANED" checked>
+                        <input type="checkbox" name="status" value="CLEANED">
                         <span>Cleaned</span>
                     </label>
                 </div>
-                <div class="field-row">
-                    <label for="days-filter">Date range</label>
-                    <select id="days-filter">
-                        <option value="7">Last 7 days</option>
-                        <option value="30">Last 30 days</option>
-                        <option value="all" selected>All</option>
-                    </select>
-                </div>
-                <div class="button-row action-row">
-                    <button class="btn btn-subtle" id="apply-filters-btn" type="button">Apply Filters</button>
-                    <button class="btn btn-primary" id="report-trash-btn" type="button">Report Trash</button>
-                    <button class="btn btn-secondary" id="log-route-btn" type="button">Log Cleanup Route</button>
-                </div>
+                <button class="btn btn-subtle" id="apply-filters-btn" type="button">Apply Filters</button>
             </section>
 
+            <!-- Details panel -->
             <section class="panel-section panel-section--details">
                 <div class="section-header">
-                    <div>
-                        <h2>Details</h2>
-                        <p>Inspect status, notes, proof, and route mileage for the selected feature.</p>
-                    </div>
+                    <h2>Details</h2>
                 </div>
-                <div id="detail-content">
+                <div id="detail-content" aria-live="polite">
                     <div class="detail-empty-state">
                         <span class="detail-empty-kicker">No selection</span>
                         <h3>Details will appear here</h3>
-                        <p>Select a trash site or cleanup route on the map to review its information.</p>
+                        <p>Select a trash site on the map to review its information.</p>
                     </div>
                 </div>
             </section>
         </div>
-        <div class="map-type-footer panel-section">
-            <div class="section-header">
-                <div>
-                    <h2>Overlays</h2>
-                    <p>Highlight the county boundaries relevant to your current cleanup work.</p>
-                </div>
-            </div>
-            <div class="field-row overlay-toggle-row">
-                <label>County boundaries</label>
-                <div class="overlay-mode-list">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="overlay-putnam-toggle" checked>
-                        Putnam County
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="overlay-six-county-toggle">
-                        Smith, Jackson, Putnam, White, Van Buren, Cumberland
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="overlay-upper-toggle">
-                        Entire Upper Cumberland
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="overlay-custom-toggle">
-                        Custom
-                    </label>
-                </div>
-                <div id="custom-county-list-wrap" class="county-boundary-wrap is-hidden">
-                    <label>Custom counties</label>
-                    <div class="county-boundary-list">
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="county-boundary" value="Putnam" checked>
-                        Putnam County
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="county-boundary" value="White">
-                        White County
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="county-boundary" value="Overton">
-                        Overton County
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="county-boundary" value="Fentress">
-                        Fentress County
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="county-boundary" value="Pickett">
-                        Pickett County
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="county-boundary" value="Clay">
-                        Clay County
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="county-boundary" value="Jackson">
-                        Jackson County
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="county-boundary" value="Smith">
-                        Smith County
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="county-boundary" value="DeKalb">
-                        DeKalb County
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="county-boundary" value="Cannon">
-                        Cannon County
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="county-boundary" value="Warren">
-                        Warren County
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="county-boundary" value="Van Buren">
-                        Van Buren County
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="county-boundary" value="Cumberland">
-                        Cumberland County
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="county-boundary" value="Macon">
-                        Macon County
-                    </label>
-                    </div>
-                </div>
-            </div>
-        </div>
     </aside>
-    <div id="map"></div>
+    <div id="map" role="application" aria-label="Interactive cleanup map"></div>
 </section>
 
-<div class="modal hidden" id="trash-modal">
+<!-- Auth gate overlay -->
+<div class="auth-gate hidden" id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-gate-title">
+    <div class="auth-gate-card">
+        <h2 id="auth-gate-title">Sign in to participate</h2>
+        <p>You need an account to report trash or submit cleanup results.</p>
+        <div class="button-row">
+            <a class="btn btn-primary" href="{% url 'login' %}">Log in</a>
+            <a class="btn btn-secondary" href="{% url 'signup' %}">Sign up</a>
+        </div>
+        <button class="btn btn-subtle btn-compact" type="button" data-close-modal="auth-gate">Close</button>
+    </div>
+</div>
+
+<!-- Report trash modal -->
+<div class="modal hidden" id="trash-modal" role="dialog" aria-modal="true" aria-labelledby="trash-modal-title">
     <div class="modal-card">
-        <h2>Report Trash Site</h2>
+        <h2 id="trash-modal-title">Report Trash Site</h2>
         <form id="trash-form" enctype="multipart/form-data">
             {% csrf_token %}
-            <input type="hidden" name="lat" id="trash-lat">
-            <input type="hidden" name="lng" id="trash-lng">
-            <label>Title
-                <input type="text" name="title" maxlength="255">
-            </label>
-            <label>Description
-                <textarea name="description" rows="3"></textarea>
-            </label>
-            <label>Severity
-                <select name="severity">
-                    <option value="">(optional)</option>
-                    <option value="LIGHT">Light</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="HEAVY">Heavy</option>
-                </select>
-            </label>
-            <label><input type="checkbox" name="hazard_flag" value="1"> Hazard present</label>
-            <label>Photos
-                <input type="file" name="photos" multiple accept="image/*">
-            </label>
+            <input type="hidden" name="geojson" id="trash-geojson">
+            <label for="trash-title">Title (optional)</label>
+            <input type="text" name="title" id="trash-title" maxlength="255" placeholder="e.g. Roadside litter near park entrance">
+            <label for="trash-desc">Description</label>
+            <textarea name="description" id="trash-desc" rows="3" placeholder="Describe what you see"></textarea>
+            <label for="trash-severity">Severity</label>
+            <select name="severity" id="trash-severity">
+                <option value="">(optional)</option>
+                <option value="LIGHT">Light</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HEAVY">Heavy</option>
+            </select>
+            <label class="checkbox-label"><input type="checkbox" name="hazard_flag" value="1"> Hazard present</label>
+            <label for="trash-photos">Photos (max 5)</label>
+            <input type="file" name="photos" id="trash-photos" multiple accept="image/jpeg,image/png,image/webp,image/heic">
+            <div id="trash-photo-preview" class="photo-upload-preview"></div>
             <div class="button-row">
-                <button class="btn btn-primary" type="submit">Save Trash Site</button>
+                <button class="btn btn-primary" type="submit" id="trash-submit-btn">
+                    <span class="btn-label">Submit Report</span>
+                    <span class="loading-spinner hidden" aria-hidden="true"></span>
+                </button>
                 <button class="btn btn-subtle" type="button" data-close-modal="trash-modal">Cancel</button>
             </div>
         </form>
     </div>
 </div>
 
-<div class="modal hidden" id="cleaned-modal">
+<!-- Mark cleaned modal -->
+<div class="modal hidden" id="cleaned-modal" role="dialog" aria-modal="true" aria-labelledby="cleaned-modal-title">
     <div class="modal-card">
-        <h2>Mark Site Cleaned</h2>
+        <h2 id="cleaned-modal-title">Submit Cleanup Proof</h2>
         <form id="cleaned-form" enctype="multipart/form-data">
             {% csrf_token %}
             <input type="hidden" id="cleaned-site-id">
-            <label>Note
-                <textarea name="note" rows="3"></textarea>
-            </label>
-            <label>Bags Count
-                <input type="number" name="bags_count" min="0" value="0">
-            </label>
-            <label>Photos
-                <input type="file" name="photos" multiple accept="image/*">
-            </label>
+            <label for="cleaned-note">Notes</label>
+            <textarea name="note" id="cleaned-note" rows="3" placeholder="What you cleaned up, conditions, etc."></textarea>
+            <label for="cleaned-bags">Bags collected</label>
+            <input type="number" name="bags_count" id="cleaned-bags" min="0" value="0">
+            <label for="cleaned-before-photos">Before photos (max 5)</label>
+            <input type="file" name="before_photos" id="cleaned-before-photos" multiple accept="image/jpeg,image/png,image/webp,image/heic">
+            <div id="before-photo-preview" class="photo-upload-preview"></div>
+            <label for="cleaned-after-photos">After photos (max 5)</label>
+            <input type="file" name="after_photos" id="cleaned-after-photos" multiple accept="image/jpeg,image/png,image/webp,image/heic">
+            <div id="after-photo-preview" class="photo-upload-preview"></div>
             <div class="button-row">
-                <button class="btn btn-secondary" type="submit">Submit Cleanup Proof</button>
+                <button class="btn btn-secondary" type="submit" id="cleaned-submit-btn">
+                    <span class="btn-label">Submit Cleanup</span>
+                    <span class="loading-spinner hidden" aria-hidden="true"></span>
+                </button>
                 <button class="btn btn-subtle" type="button" data-close-modal="cleaned-modal">Cancel</button>
             </div>
         </form>
     </div>
 </div>
-
-<div class="modal hidden" id="route-modal">
-    <div class="modal-card">
-        <h2>Log Cleanup Route</h2>
-        <form id="route-form" enctype="multipart/form-data">
-            {% csrf_token %}
-            <input type="hidden" id="route-coordinates" name="coordinates">
-            <label>Notes
-                <textarea name="notes" rows="3"></textarea>
-            </label>
-            <label>Time Spent (minutes)
-                <input type="number" name="time_spent_minutes" min="0">
-            </label>
-            <label>Photos
-                <input type="file" name="photos" multiple accept="image/*">
-            </label>
-            <div class="button-row">
-                <button class="btn btn-primary" type="submit">Save Route</button>
-                <button class="btn btn-subtle" type="button" data-close-modal="route-modal">Cancel</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 {% endblock %}
 
 {% block scripts %}
@@ -249,12 +156,12 @@
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
     <script>
         window.APP_CONFIG = {
+            isAuthenticated: {{ user.is_authenticated|yesno:"true,false" }},
             endpoints: {
                 features: "{% url 'api_features' %}",
+                districts: "{% url 'api_districts' %}",
                 trashCreate: "{% url 'api_trash_site_create' %}",
-                trashUpdateBase: "/api/trash-sites/",
-                routeCreate: "{% url 'api_route_cleanup_create' %}",
-                countyBoundariesGeoJson: "{% static 'data/upper_cumberland_counties.geojson' %}",
+                trashUpdateBase: "/api/trash-sites/"
             }
         };
     </script>

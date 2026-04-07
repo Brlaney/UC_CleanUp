@@ -476,6 +476,12 @@ button:disabled,
   text-decoration: none;
 }
 
+.brand-logo {
+  height: 36px;
+  width: auto;
+  display: block;
+}
+
 .brand-kicker {
   font-size: 0.68rem;
   text-transform: uppercase;

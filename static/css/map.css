@@ -157,7 +157,7 @@
 
 .detail-empty-state {
   display: flex;
-  min-height: 220px;
+  min-height: 160px;
   align-items: flex-start;
   justify-content: center;
   flex-direction: column;

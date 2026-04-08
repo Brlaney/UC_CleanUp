@@ -5,42 +5,54 @@ services:
     plan: starter
     healthCheckPath: /healthz
     autoDeploy: true
+
+    # Run migrations before new instance receives traffic (zero-downtime deploys).
+    # The entrypoint also runs migrate as a fallback for local Docker usage.
+    preDeployCommand: python manage.py migrate --noinput
+
     envVars:
+      # Generated once by Render and persisted — never regenerated on redeploy.
       - key: SECRET_KEY
         generateValue: true
+
       - key: DEBUG
         value: "0"
+
+      # Update both values if you add a custom domain.
       - key: ALLOWED_HOSTS
         value: upper-cumberland-cleanup.onrender.com
       - key: CSRF_TRUSTED_ORIGINS
         value: https://upper-cumberland-cleanup.onrender.com
-      - key: DATABASE_URL
-        fromDatabase:
-          name: upper-cumberland-cleanup-db
-          property: connectionString
+
+      # Set manually in Render dashboard — Supabase connection string.
+      # Format: postgresql://user:password@host:5432/db?sslmode=require
+      - key: DB_CONN_STRING
+        sync: false
       - key: DATABASE_SSL_REQUIRE
         value: "1"
-      - key: RUN_COLLECTSTATIC
-        value: "1"
+
       - key: LOG_LEVEL
         value: INFO
+
+      # Gunicorn — starter plan has 512 MB RAM; 2 workers is safe.
+      # Increase to 3-4 if you upgrade the plan.
+      - key: GUNICORN_WORKERS
+        value: "2"
+
+      # collectstatic runs inside the Docker entrypoint when this is "1".
+      - key: RUN_COLLECTSTATIC
+        value: "1"
+
+      # Cloudflare R2 (S3-compatible) — set all five in Render dashboard.
       - key: USE_S3_MEDIA
         value: "1"
-      - key: AWS_S3_REGION_NAME
-        value: auto
-      - key: AWS_ACCESS_KEY_ID
+      - key: CF_ACCESS_KEY_ID
         sync: false
-      - key: AWS_SECRET_ACCESS_KEY
+      - key: CF_SECRET_ACCESS_KEY
         sync: false
-      - key: AWS_STORAGE_BUCKET_NAME
+      - key: CF_BUCKET_NAME
         sync: false
-      - key: AWS_S3_ENDPOINT_URL
+      - key: CF_S3_ENDPOINT_URL
         sync: false
-      - key: AWS_S3_CUSTOM_DOMAIN
+      - key: CF_S3_CUSTOM_DOMAIN
         sync: false
-
-databases:
-  - name: upper-cumberland-cleanup-db
-    plan: starter
-    databaseName: putnam_trashmap
-    user: putnam

@@ -29,7 +29,7 @@ services:
     environment:
       SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
       DEBUG: ${DEBUG:-1}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-127.0.0.1,localhost}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-127.0.0.1,localhost,192.168.1.37}
       TIME_ZONE: ${TIME_ZONE:-America/Chicago}
       POSTGRES_DB: ${POSTGRES_DB:-putnam_trashmap}
       POSTGRES_USER: ${POSTGRES_USER:-putnam}

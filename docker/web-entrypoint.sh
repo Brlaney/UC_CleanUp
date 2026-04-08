@@ -1,10 +1,12 @@
 #!/bin/sh
 set -e
 
-echo "Waiting for PostGIS at ${POSTGRES_HOST}:${POSTGRES_PORT}..."
-until pg_isready -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null 2>&1; do
-  sleep 1
-done
+if [ -n "${POSTGRES_HOST}" ]; then
+  echo "Waiting for PostGIS at ${POSTGRES_HOST}:${POSTGRES_PORT}..."
+  until pg_isready -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null 2>&1; do
+    sleep 1
+  done
+fi
 
 echo "Applying migrations..."
 python manage.py migrate --noinput

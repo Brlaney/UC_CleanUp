@@ -76,7 +76,7 @@ default_database_url = (
 
 DATABASES = {
     "default": dj_database_url.config(
-        default=os.getenv("DATABASE_URL", default_database_url),
+        default=os.getenv("DB_CONN_STRING", os.getenv("DATABASE_URL", default_database_url)),
         engine="django.contrib.gis.db.backends.postgis",
         conn_max_age=int(os.getenv("CONN_MAX_AGE", "60")),
         ssl_require=os.getenv("DATABASE_SSL_REQUIRE", "0") == "1",
@@ -151,12 +151,12 @@ LOGOUT_REDIRECT_URL = "/"
 
 USE_S3_MEDIA = os.getenv("USE_S3_MEDIA", "0") == "1"
 if USE_S3_MEDIA:
-    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
-    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
-    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "")
-    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "auto")
-    AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL", "")
-    AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN", "")
+    AWS_ACCESS_KEY_ID = os.getenv("CF_ACCESS_KEY_ID", "")
+    AWS_SECRET_ACCESS_KEY = os.getenv("CF_SECRET_ACCESS_KEY", "")
+    AWS_STORAGE_BUCKET_NAME = os.getenv("CF_BUCKET_NAME", "")
+    AWS_S3_REGION_NAME = "auto"
+    AWS_S3_ENDPOINT_URL = os.getenv("CF_S3_ENDPOINT_URL", "")
+    AWS_S3_CUSTOM_DOMAIN = os.getenv("CF_S3_CUSTOM_DOMAIN", "")
     AWS_QUERYSTRING_AUTH = False
     AWS_S3_FILE_OVERWRITE = False
     STORAGES = {
@@ -210,10 +210,10 @@ if not DEBUG and not ALLOWED_HOSTS:
 
 if not DEBUG and USE_S3_MEDIA:
     required_storage_values = {
-        "AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID", ""),
-        "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY", ""),
-        "AWS_STORAGE_BUCKET_NAME": os.getenv("AWS_STORAGE_BUCKET_NAME", ""),
-        "AWS_S3_ENDPOINT_URL": os.getenv("AWS_S3_ENDPOINT_URL", ""),
+        "CF_ACCESS_KEY_ID": os.getenv("CF_ACCESS_KEY_ID", ""),
+        "CF_SECRET_ACCESS_KEY": os.getenv("CF_SECRET_ACCESS_KEY", ""),
+        "CF_BUCKET_NAME": os.getenv("CF_BUCKET_NAME", ""),
+        "CF_S3_ENDPOINT_URL": os.getenv("CF_S3_ENDPOINT_URL", ""),
     }
     missing_storage_values = [key for key, value in required_storage_values.items() if not value]
     if missing_storage_values:

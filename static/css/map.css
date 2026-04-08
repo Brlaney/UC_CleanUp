@@ -609,7 +609,14 @@
   /* Show drag handle on mobile */
   .sheet-handle {
     display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
     flex-shrink: 0;
+  }
+
+  .sheet-handle-label {
+    display: block;
   }
 
   /* Scrollable content area inside fixed panel */

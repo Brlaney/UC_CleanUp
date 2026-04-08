@@ -30,6 +30,7 @@
             <nav class="topnav" aria-label="Primary">
                 <a class="topnav-link{% if request.resolver_match.url_name == 'map' %} is-active{% endif %}" href="{% url 'map' %}"{% if request.resolver_match.url_name == 'map' %} aria-current="page"{% endif %}>Map</a>
                 <a class="topnav-link{% if request.resolver_match.url_name == 'cleanups' %} is-active{% endif %}" href="{% url 'cleanups' %}"{% if request.resolver_match.url_name == 'cleanups' %} aria-current="page"{% endif %}>Cleanups</a>
+                <a class="topnav-link{% if request.resolver_match.url_name == 'about' %} is-active{% endif %}" href="{% url 'about' %}"{% if request.resolver_match.url_name == 'about' %} aria-current="page"{% endif %}>About</a>
                 {% if user.is_authenticated and user.is_staff or user.is_superuser %}
                     <a class="topnav-link" href="{% url 'admin:index' %}">Admin</a>
                 {% endif %}

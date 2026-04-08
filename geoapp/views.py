@@ -195,6 +195,10 @@ def map_view(request):
     return render(request, "geoapp/map.html")
 
 
+def about_view(request):
+    return render(request, "geoapp/about.html")
+
+
 def cleanups_view(request):
     sites = (
         TrashSite.objects.filter(status=TrashSite.Status.CLEANED)

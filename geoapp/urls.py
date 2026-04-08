@@ -6,6 +6,7 @@ urlpatterns = [
     # Public HTML
     path("", views.map_view, name="map"),
     path("cleanups/", views.cleanups_view, name="cleanups"),
+    path("about/", views.about_view, name="about"),
     path("healthz", views.healthz, name="healthz"),
 
     # Public JSON API

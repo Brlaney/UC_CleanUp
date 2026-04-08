@@ -14,7 +14,10 @@
     <aside class="control-panel" aria-label="Map controls" id="control-panel">
         <div class="sheet-handle" id="sheet-handle" aria-label="Toggle panel" role="button" tabindex="0">
             <div class="sheet-handle-bar"></div>
-            <span class="sheet-handle-label">Map Controls</span>
+            <div class="sheet-handle-row">
+                <span class="sheet-handle-label">Map Controls</span>
+                <span class="sheet-handle-chevron" aria-hidden="true"></span>
+            </div>
         </div>
         <div class="control-panel-main">
             <div class="panel-hero">
@@ -163,6 +166,11 @@
             </div>
         </form>
     </div>
+</div>
+<!-- Photo lightbox -->
+<div class="photo-lightbox hidden" id="photo-lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer">
+    <button class="photo-lightbox-close" id="photo-lightbox-close" aria-label="Close photo">&times;</button>
+    <img class="photo-lightbox-img" id="photo-lightbox-img" src="" alt="">
 </div>
 {% endblock %}
 

@@ -94,6 +94,41 @@
     });
   }());
 
+  /* ---- Photo lightbox ---- */
+  (function () {
+    var lightbox = document.getElementById("photo-lightbox");
+    var lightboxImg = document.getElementById("photo-lightbox-img");
+    var closeBtn = document.getElementById("photo-lightbox-close");
+    if (!lightbox || !lightboxImg) return;
+
+    function openLightbox(src, alt) {
+      lightboxImg.src = src;
+      lightboxImg.alt = alt || "";
+      lightbox.classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeLightbox() {
+      lightbox.classList.add("hidden");
+      lightboxImg.src = "";
+      document.body.style.overflow = "";
+    }
+
+    // Event delegation — works for dynamically injected imgs
+    document.getElementById("detail-content").addEventListener("click", function (e) {
+      var img = e.target.closest("img");
+      if (img) openLightbox(img.src, img.alt);
+    });
+
+    closeBtn.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      if (e.target === lightbox) closeLightbox();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeLightbox();
+    });
+  }());
+
   /* ---- Helpers ---- */
   function getBBox() {
     var b = map.getBounds();

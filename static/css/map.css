@@ -107,6 +107,16 @@
   font-size: 1rem;
 }
 
+.layer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.92rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
 .section-header p {
   margin: 0;
   color: var(--color-text-secondary);

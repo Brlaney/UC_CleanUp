@@ -167,6 +167,7 @@
         // County outline
         var countyLayer = L.geoJSON(geom, {
           pane: "districtPane",
+          interactive: false,
           style: {
             color: COLORS.district,
             weight: 2,
@@ -174,7 +175,6 @@
             dashArray: "6 4",
           },
         });
-        countyLayer.bindTooltip(county.name, { sticky: true });
         countyLayer.addTo(map);
 
         // Fit map to county
@@ -544,6 +544,19 @@
   U.setupPhotoPreview("trash-photos", "trash-photo-preview", 5);
   U.setupPhotoPreview("cleaned-before-photos", "before-photo-preview", 5);
   U.setupPhotoPreview("cleaned-after-photos", "after-photo-preview", 5);
+
+  /* ---- Layer toggles ---- */
+  var layerDistrict3Chk = document.getElementById("layer-district3");
+  if (layerDistrict3Chk) {
+    layerDistrict3Chk.addEventListener("change", function () {
+      if (!districtBoundaryLayer) return;
+      if (layerDistrict3Chk.checked) {
+        districtBoundaryLayer.addTo(map);
+      } else {
+        districtBoundaryLayer.remove();
+      }
+    });
+  }
 
   /* ---- How-to toggle ---- */
   var howToBtn = document.getElementById("how-to-toggle");

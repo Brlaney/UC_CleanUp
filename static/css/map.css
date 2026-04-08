@@ -536,7 +536,7 @@
   display: none;
   justify-content: center;
   align-items: center;
-  padding: 0.6rem 0 0.4rem;
+  padding: 0.75rem 0 0.65rem;
   cursor: pointer;
   touch-action: none;
 }
@@ -595,7 +595,7 @@
     border-radius: var(--radius-md) var(--radius-md) 0 0;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
     /* Peek state — only handle visible */
-    transform: translateY(calc(100% - 52px));
+    transform: translateY(calc(100% - 64px));
     transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
     display: flex;

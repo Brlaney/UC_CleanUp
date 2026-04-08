@@ -31,8 +31,9 @@
     zoomSnap: 0.25,
     zoomDelta: 0.5,
     wheelDebounceTime: 80,
-    zoomControl: true,
+    zoomControl: false,
   });
+  L.control.zoom({ position: "topleft" }).addTo(map);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png", {
     maxZoom: 20,
     tileSize: 256,
@@ -68,6 +69,30 @@
   var detailContent = document.getElementById("detail-content");
   var trashForm = document.getElementById("trash-form");
   var cleanedForm = document.getElementById("cleaned-form");
+
+  /* ---- Mobile bottom sheet ---- */
+  (function () {
+    var panel = document.getElementById("control-panel");
+    var handle = document.getElementById("sheet-handle");
+    if (!panel || !handle) return;
+
+    function isMobile() { return window.innerWidth <= 768; }
+
+    function toggleSheet() {
+      if (!isMobile()) return;
+      panel.classList.toggle("is-expanded");
+    }
+
+    handle.addEventListener("click", toggleSheet);
+    handle.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSheet(); }
+    });
+
+    // Collapse sheet when map is tapped
+    map.on("click", function () {
+      if (isMobile()) panel.classList.remove("is-expanded");
+    });
+  }());
 
   /* ---- Helpers ---- */
   function getBBox() {

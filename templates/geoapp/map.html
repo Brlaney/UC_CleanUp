@@ -11,7 +11,11 @@
 
 {% block content %}
 <section class="map-shell">
-    <aside class="control-panel" aria-label="Map controls">
+    <aside class="control-panel" aria-label="Map controls" id="control-panel">
+        <div class="sheet-handle" id="sheet-handle" aria-label="Toggle panel" role="button" tabindex="0">
+            <div class="sheet-handle-bar"></div>
+            <span class="sheet-handle-label">Map Controls</span>
+        </div>
         <div class="control-panel-main">
             <div class="panel-hero">
                 <p class="panel-hero-hint">Upper-Cumberland CleanUp</p>

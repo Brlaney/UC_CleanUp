@@ -36,15 +36,25 @@
 
 .panel-hero {
   padding: 1.2rem 1.15rem 1.1rem;
-  background:
-    linear-gradient(135deg, rgba(13, 93, 149, 0.1), rgba(31, 122, 92, 0.04)),
-    rgba(255, 255, 255, 0.97);
+  /* background: white; */
+  /* background: #262626; */
+  background: var(--color-btn-primary-bg);
+  font-weight: 700;
 }
 
 .panel-hero-hint {
   margin: 0;
+  color: white;
+}
+
+.panel-link-text {
   font-size: 0.92rem;
-  color: var(--color-text-secondary);
+  font-weight: 700;
+  color: white;
+}
+
+.panel-link-text:hover {
+  color: var(--color-text-primary);
 }
 
 .panel-hero-hint a {
@@ -136,7 +146,7 @@
 }
 
 #detail-content {
-  min-height: 260px;
+  min-height: 200px; /* was 260px */
   padding: 1rem;
   border: 1px solid var(--color-border-medium);
   border-radius: var(--radius-md);

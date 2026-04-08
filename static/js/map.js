@@ -33,8 +33,10 @@
     wheelDebounceTime: 80,
     zoomControl: true,
   });
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png", {
     maxZoom: 20,
+    tileSize: 256,
+    detectRetina: false,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
     subdomains: "abcd",
   }).addTo(map);
@@ -83,7 +85,10 @@
 
   function formatDate(iso) {
     if (!iso) return "-";
-    return new Date(iso).toLocaleString();
+    const d = new Date(iso);
+    const date = d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true });
+    return date + ", " + time;
   }
 
   function setDetail(html) {

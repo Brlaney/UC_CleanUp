@@ -58,7 +58,9 @@
 }
 
 .how-to-toggle:hover {
-  color: var(--color-primary-dark, #0a4a78);
+  background: none;
+  transform: none;
+  color: var(--color-primary);
 }
 
 .how-to-chevron {
@@ -103,6 +105,16 @@
 .section-header h2 {
   margin-bottom: 0.2rem;
   font-size: 1rem;
+}
+
+.layer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.92rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  user-select: none;
 }
 
 .section-header p {

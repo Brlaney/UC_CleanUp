@@ -14,8 +14,27 @@
     <aside class="control-panel" aria-label="Map controls">
         <div class="control-panel-main">
             <div class="panel-hero">
-                <h1>Upper-Cumberland CleanUp</h1>
-                <p>Report trash and help organize cleanup efforts in your community.</p>
+                <button class="how-to-toggle" id="how-to-toggle" type="button" aria-expanded="false" aria-controls="how-to-steps">
+                    How to use this site
+                    <span class="how-to-chevron" aria-hidden="true">&#9660;</span>
+                </button>
+                <ol class="how-to-steps hidden" id="how-to-steps">
+                    <li>
+                        <strong>Browse the map</strong> — no account needed. Existing trash reports appear as markers. Click any marker to see details.
+                    </li>
+                    <li>
+                        <strong>Sign up or log in</strong> to participate. Use the buttons in the top-right corner.
+                    </li>
+                    <li>
+                        <strong>Report Trash</strong> — select &ldquo;Report Trash&rdquo; mode, then click &ldquo;Place Pin&rdquo; and tap the map where you spotted litter. Fill in the details and submit.
+                    </li>
+                    <li>
+                        <strong>Mark a Cleanup</strong> — switch to &ldquo;Cleanup Trash&rdquo; mode, click an existing marker, and hit &ldquo;Mark Cleaned&rdquo;. Upload before &amp; after photos if you have them.
+                    </li>
+                    <li>
+                        <strong>View Cleanups</strong> — visit the <a href="{% url 'cleanups' %}">Cleanups page</a> to see completed efforts across the district.
+                    </li>
+                </ol>
             </div>
 
             <!-- Mode switcher -->

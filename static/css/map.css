@@ -41,15 +41,51 @@
     rgba(255, 255, 255, 0.97);
 }
 
-.panel-hero h1 {
-  margin-bottom: 0.55rem;
-  font-size: 1.55rem;
+.how-to-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.97rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  cursor: pointer;
+  text-align: left;
+  gap: 0.4rem;
 }
 
-.panel-hero p {
-  margin: 0;
+.how-to-toggle:hover {
+  color: var(--color-primary-dark, #0a4a78);
+}
+
+.how-to-chevron {
+  font-size: 0.7rem;
+  transition: transform 0.2s ease;
+}
+
+.how-to-toggle[aria-expanded="true"] .how-to-chevron {
+  transform: rotate(180deg);
+}
+
+.how-to-steps {
+  margin: 0.85rem 0 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.how-to-steps li {
   color: var(--color-text-secondary);
-  font-size: 0.97rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.how-to-steps li a {
+  color: var(--color-primary);
 }
 
 .panel-section {

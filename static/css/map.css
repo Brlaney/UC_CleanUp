@@ -375,6 +375,52 @@
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-soft);
   box-shadow: var(--shadow-sm);
+  cursor: zoom-in;
+}
+
+/* Photo lightbox */
+.photo-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.18s ease;
+}
+
+.photo-lightbox.hidden {
+  display: none;
+}
+
+.photo-lightbox-img {
+  max-width: min(92vw, 900px);
+  max-height: 88vh;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+}
+
+.photo-lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  opacity: 0.8;
+}
+
+.photo-lightbox-close:hover {
+  opacity: 1;
+  background: none;
+  transform: none;
 }
 
 .mode-switcher-section {

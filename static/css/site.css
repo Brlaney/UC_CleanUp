@@ -25,6 +25,10 @@ body {
   overflow-x: hidden;
 }
 
+main {
+  flex: 1;
+}
+
 img {
   max-width: 100%;
 }

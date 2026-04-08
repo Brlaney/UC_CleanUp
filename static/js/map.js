@@ -545,6 +545,17 @@
   U.setupPhotoPreview("cleaned-before-photos", "before-photo-preview", 5);
   U.setupPhotoPreview("cleaned-after-photos", "after-photo-preview", 5);
 
+  /* ---- How-to toggle ---- */
+  var howToBtn = document.getElementById("how-to-toggle");
+  var howToSteps = document.getElementById("how-to-steps");
+  if (howToBtn && howToSteps) {
+    howToBtn.addEventListener("click", function () {
+      var expanded = howToBtn.getAttribute("aria-expanded") === "true";
+      howToBtn.setAttribute("aria-expanded", String(!expanded));
+      howToSteps.classList.toggle("hidden", expanded);
+    });
+  }
+
   /* ---- Init ---- */
   setMode("report");
   loadDistricts();

@@ -596,13 +596,35 @@
   background: var(--color-border-medium);
 }
 
-.sheet-handle-label {
+.sheet-handle-row {
   display: none;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.sheet-handle-label {
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--color-text-secondary);
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.sheet-handle-chevron {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-left: 2px solid var(--color-text-secondary);
+  border-top: 2px solid var(--color-text-secondary);
+  transform: rotate(45deg); /* points up — "tap to expand" */
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+  margin-top: 3px; /* optical centering after rotation */
+}
+
+.control-panel.is-expanded .sheet-handle-chevron {
+  transform: rotate(225deg); /* points down — "tap to collapse" */
+  margin-top: -3px;
 }
 
 @media (max-width: 1100px) {
@@ -659,8 +681,8 @@
     height: 64px;
   }
 
-  .sheet-handle-label {
-    display: block;
+  .sheet-handle-row {
+    display: flex;
   }
 
   /* Scrollable content area inside fixed panel */

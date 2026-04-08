@@ -29,6 +29,15 @@ main {
   flex: 1;
 }
 
+.page--about {
+  display: flex;
+  flex-direction: column;
+}
+
+.page--about .content-shell {
+  flex: 1;
+}
+
 img {
   max-width: 100%;
 }

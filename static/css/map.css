@@ -675,15 +675,19 @@
   .fab {
     width: 52px;
     height: 52px;
+    padding: 0;
+    margin: 0;
     border-radius: 50%;
     background-color: #fff;
-    background-size: 68%;
+    background-size: 80%;
     background-repeat: no-repeat;
     background-position: center;
     border: none;
     box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
     cursor: pointer;
     flex-shrink: 0;
+    appearance: none;
+    -webkit-appearance: none;
     -webkit-tap-highlight-color: transparent;
     transition: transform 0.12s ease, box-shadow 0.12s ease;
   }

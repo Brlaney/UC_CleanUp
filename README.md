@@ -1,125 +1,121 @@
 # Upper-Cumberland CleanUp
 
-Interactive web app for reporting trash and organizing cleanup efforts in the Upper Cumberland region of Tennessee, starting with Putnam County Commission District 3.
+Interactive web map for reporting trash and organizing cleanup efforts in the Upper Cumberland region of Tennessee — starting with Putnam County Commission District 3.
 
-- Backend: Django + GeoDjango + PostGIS
-- Frontend: Django templates + Leaflet + leaflet-draw + vanilla JS
-- Auth: public map viewing; login required to submit reports/cleanups
-- Anti-abuse: django-ratelimit + IP ban middleware
+**Live:** [uc-cleanup.com](https://uc-cleanup.com)
 
-## Demo
+---
 
-### Report Mode — Site Detail with Area Polygon
-![Report mode with area polygon and site detail](images/Demo_1.png)
+## Features
 
-### Completed Cleanups Page
-![Public cleanups showcase](images/Demo_2.png)
+| | |
+|---|---|
+| **Report Trash** | Place a pin or draw a polygon, add description, severity, and up to 5 photos |
+| **Cleanup Trash** | Claim an active report, submit before/after photos and proof |
+| **Public Map** | Putnam County boundary + District 3 overlay, real-time marker filtering |
+| **Cleanups Page** | Public gallery of completed cleanups with photo proof |
+| **Mobile-first** | Responsive bottom sheet panel, touch-friendly controls |
 
-### District 3 Boundary with Site Detail & Popup
-![District 3 boundary with trash site detail and mark cleaned popup](images/Demo_3.png)
+## Screenshots
 
-### Cleanup Mode — Draw Area
-![Cleanup mode with draw area tool active](images/Demo_4.png)
+<table>
+<tr>
+<td><img src="images/Sample_1.png" alt="Report mode with site detail" width="420"></td>
+<td><img src="images/Sample_2.png" alt="Completed cleanups page" width="420"></td>
+</tr>
+</table>
 
-## Core Features
+## Tech Stack
 
-### Two-Mode Map UI
-- **Report Trash**: Place a pin or draw a polygon area, add description/severity/photos (max 5)
-- **Cleanup Trash**: Click active reports, submit before/after photos and cleanup proof
+- **Backend:** Python 3.12, Django 5.2, GeoDjango, PostGIS 3.4
+- **Frontend:** Django templates, Leaflet 1.9.4, leaflet-draw, vanilla JS
+- **Database:** PostgreSQL 16 + PostGIS (Supabase in production)
+- **Storage:** Cloudflare R2 via django-storages + boto3
+- **Serving:** Gunicorn + WhiteNoise, deployed on Render
+- **Auth:** django.contrib.auth — public read, login required to write
+- **Anti-abuse:** django-ratelimit + IP ban middleware
 
-### Public Pages
-- `/` — Interactive map with Putnam County boundary and District 3 overlay
-- `/cleanups/` — Public showcase of completed cleanups with before/after galleries
-- `/accounts/login/` and `/accounts/signup/` — Authentication
+## Local Development
 
-### District Abstraction
-- District boundaries stored in DB (not hardcoded)
-- Putnam County boundary rendered as outer mask; District 3 shown as labeled inner boundary
-- Trash sites auto-assigned to districts via spatial query
-- Designed for future multi-district support
+### Prerequisites
 
-### Security
+- Docker + Docker Compose
+
+### Run
+
+```bash
+git clone https://github.com/Brlaney/Upper-Cumberland-CleanUp.git
+cd Upper-Cumberland-CleanUp
+docker compose up --build
+```
+
+App is at `http://localhost:8000`. Putnam County and District 3 boundaries are seeded automatically on first run.
+
+```bash
+# Create a superuser
+docker compose exec web python manage.py createsuperuser
+```
+
+### Environment Variables
+
+Copy `.env.example` to `.env` and fill in values. Key variables:
+
+| Variable | Description |
+|---|---|
+| `SECRET_KEY` | Django secret key |
+| `DEBUG` | `1` for local dev, `0` for production |
+| `DB_CONN_STRING` | Full PostgreSQL connection string (production) |
+| `CF_ACCESS_KEY_ID` | Cloudflare R2 access key |
+| `CF_SECRET_ACCESS_KEY` | Cloudflare R2 secret |
+| `CF_BUCKET_NAME` | R2 bucket name |
+| `CF_S3_ENDPOINT_URL` | R2 endpoint URL |
+| `CF_S3_CUSTOM_DOMAIN` | R2 public domain for media URLs |
+| `USE_S3_MEDIA` | `1` to use R2 for media, `0` for local |
+
+## API Endpoints
+
+### Public
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/` | Map view |
+| `GET` | `/cleanups/` | Completed cleanups gallery |
+| `GET` | `/about/` | About page |
+| `GET` | `/api/features/` | GeoJSON features (`bbox`, `status`, `days`, `district`) |
+| `GET` | `/api/districts/` | Active district boundaries |
+| `GET` | `/api/trash-sites/<id>/detail/` | Site detail |
+| `GET` | `/api/cleanups/` | Paginated cleaned sites |
+| `GET` | `/healthz` | Health check |
+
+### Authenticated
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/trash-sites/` | Create trash report (multipart, max 5 photos) |
+| `PATCH` | `/api/trash-sites/<id>/` | Update site |
+| `POST` | `/api/trash-sites/<id>/mark-cleaned/` | Submit cleanup proof |
+| `POST` | `/api/feedback/` | Submit feedback |
+
+## Data Model
+
+```
+District        — name, slug, geometry (MultiPolygon), active
+TrashSite       — status, location (Point), area (Polygon), district FK,
+                  title, description, severity, hazard_flag,
+                  created_by, claimed_by, created_at, cleaned_at
+CleanupProof    — trash_site FK, note, bags_count, created_by
+Photo           — image, proof FK, photo_type (REPORT/BEFORE/AFTER)
+IPBan           — ip_address, reason, expires_at
+```
+
+## Security
+
 - Rate limiting on all API endpoints (django-ratelimit)
 - IP ban table with optional expiry
 - CSRF protection on all write endpoints
 - Photo upload validation (count, size, MIME type)
+- `SECURE_HSTS_SECONDS`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` in production
 
-## Tech Stack
+## License
 
-- Python 3.12, Django 5.2.x
-- PostgreSQL 16 + PostGIS 3.4
-- Pillow, Gunicorn, WhiteNoise
-- django-storages + boto3 for S3/R2 media
-- django-ratelimit for API throttling
-- Leaflet 1.9.4 + leaflet-draw 1.0.4
-- CARTO Voyager basemap tiles
-
-## Data Model
-
-### `District`
-- `id` UUID, `name`, `slug` (unique), `geometry` MultiPolygonField, `active` bool
-
-### `TrashSite`
-- `id` UUID, `status` (PENDING/IN_PROGRESS/CLEANED/INVALID)
-- `location` PointField, `area` PolygonField (optional, for area reports)
-- `district` FK(District), `title`, `description`, `severity`, `hazard_flag`
-- `created_by`, `claimed_by`, `created_at`, `cleaned_at`
-
-### `CleanupProof`
-- `trash_site` FK, `note`, `bags_count`, `created_by`
-
-### `Photo`
-- `image` ImageField, `proof` FK, `photo_type` (REPORT/BEFORE/AFTER)
-
-### `IPBan`
-- `ip_address`, `reason`, `expires_at` (null = permanent)
-
-## API Endpoints
-
-### Public (no login)
-- `GET /` — Map view
-- `GET /cleanups/` — Cleanup showcase
-- `GET /healthz` — Health check
-- `GET /api/features/?bbox=&status=&days=&district=` — GeoJSON features
-- `GET /api/districts/` — Active districts with geometry
-- `GET /api/trash-sites/<id>/detail/` — Site detail
-- `GET /api/cleanups/?page=&page_size=` — Paginated cleaned sites
-
-### Authenticated
-- `POST /api/trash-sites/` — Create report (multipart, max 5 photos)
-- `PATCH /api/trash-sites/<id>/` — Update site
-- `POST /api/trash-sites/<id>/mark-cleaned/` — Submit cleanup proof (before/after photos)
-- `POST /api/feedback/` — Submit feedback
-
-## Setup
-
-### Docker (recommended)
-
-```powershell
-cd C:\Users\Brlan\Documents\Coding\concept\site\trash-proj\putnam_trashmap
-docker compose up --build -d
-docker compose exec web python manage.py createsuperuser
-```
-
-App at `http://127.0.0.1:8000/`. Putnam County and District 3 boundaries are auto-seeded on startup.
-
-### Environment Variables
-
-See `.env.example`. Key variables:
-- `REDIS_URL` — Optional Redis for rate limit cache (defaults to in-memory)
-
-## Testing
-
-```powershell
-docker compose run --rm web python manage.py test
-```
-
-## Accessibility
-
-- Skip-to-content link
-- ARIA roles on all modals (`role="dialog"`, `aria-modal="true"`)
-- Focus trap and return on modal open/close
-- `aria-live` regions for toasts, detail panel, mode instructions
-- WCAG 2.1 AA color contrast compliance
-- Keyboard navigable map controls
-- Responsive hamburger nav for mobile viewports
+MIT

@@ -27,6 +27,10 @@ Interactive web map for reporting trash and organizing cleanup efforts in the Up
 <td><img src="images/Demo_3.png" alt="District 3 boundary with site detail" width="420"></td>
 <td><img src="images/Demo_4.png" alt="Cleanup mode draw area" width="420"></td>
 </tr>
+<tr>
+<td><img src="images/Sample_1.png" alt="Sample report view" width="420"></td>
+<td><img src="images/Sample_2.png" alt="Sample cleanup view" width="420"></td>
+</tr>
 </table>
 
 ## Tech Stack

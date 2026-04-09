@@ -689,12 +689,12 @@
     appearance: none;
     -webkit-appearance: none;
     -webkit-tap-highlight-color: transparent;
+    transform-origin: center center;
     transition: transform 0.12s ease, box-shadow 0.12s ease;
   }
 
   .fab:active {
     transform: scale(0.91);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
 
   /* ---- Layers card & mode picker shared base ---- */

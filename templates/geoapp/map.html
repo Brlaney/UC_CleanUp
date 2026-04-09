@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Map - Upper-Cumberland CleanUp{% endblock %}
+{% block title %}UC CleanUp{% endblock %}
 
 {% block extra_head %}
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -93,6 +93,55 @@
     </aside>
     <div id="map" role="application" aria-label="Interactive cleanup map"></div>
 </section>
+
+<!-- Mobile FAB stack -->
+<div class="mobile-fab-stack" id="mobile-fab-stack" aria-label="Map actions">
+    <button class="fab fab--layers" id="fab-layers" type="button" aria-label="Layers">
+        <img src="{% static 'images/layers.png' %}" alt="" width="26" height="26">
+    </button>
+    <button class="fab fab--mode" id="fab-mode" type="button" aria-label="Select mode" aria-haspopup="true">
+        <img src="{% static 'images/pin.png' %}" alt="" width="26" height="26" id="fab-mode-img">
+    </button>
+</div>
+
+<!-- Mobile layers card -->
+<div class="mobile-card mobile-layers-card hidden" id="mobile-layers-card" role="dialog" aria-label="Layer controls">
+    <div class="mobile-card-header">
+        <span class="mobile-card-title">Layers</span>
+        <button class="mobile-card-close" id="mobile-layers-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div class="mobile-card-body">
+        <label class="layer-toggle">
+            <input type="checkbox" id="layer-district3-mob" checked>
+            <span>District 3</span>
+        </label>
+    </div>
+</div>
+
+<!-- Mobile mode picker -->
+<div class="mobile-mode-picker hidden" id="mobile-mode-picker" role="menu">
+    <button class="mode-pick-btn is-active" data-pick-mode="pin" type="button" role="menuitem">
+        <img src="{% static 'images/pin.png' %}" alt="" width="22" height="22">
+        <span>Place Pin</span>
+    </button>
+    <button class="mode-pick-btn" data-pick-mode="polygon" type="button" role="menuitem">
+        <img src="{% static 'images/polygon.png' %}" alt="" width="22" height="22">
+        <span>Draw Area</span>
+    </button>
+    <button class="mode-pick-btn" data-pick-mode="cleanup" type="button" role="menuitem">
+        <img src="{% static 'images/leaf.png' %}" alt="" width="22" height="22">
+        <span>Find Cleanup</span>
+    </button>
+</div>
+
+<!-- Mobile detail card (slides up from bottom on marker tap) -->
+<div class="mobile-detail-card hidden" id="mobile-detail-card">
+    <div class="mobile-card-header">
+        <span class="mobile-card-title">Site Details</span>
+        <button class="mobile-card-close" id="mobile-detail-close" type="button" aria-label="Close details">&times;</button>
+    </div>
+    <div class="mobile-card-body" id="mobile-detail-body" aria-live="polite"></div>
+</div>
 
 <!-- Auth gate overlay -->
 <div class="auth-gate hidden" id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-gate-title">

@@ -70,28 +70,136 @@
   var trashForm = document.getElementById("trash-form");
   var cleanedForm = document.getElementById("cleaned-form");
 
-  /* ---- Mobile bottom sheet ---- */
+  /* Mobile DOM refs */
+  var mobileDetailCard = document.getElementById("mobile-detail-card");
+  var mobileDetailBody = document.getElementById("mobile-detail-body");
+  var mobileDetailClose = document.getElementById("mobile-detail-close");
+  var mobileLayersCard = document.getElementById("mobile-layers-card");
+  var mobileLayersClose = document.getElementById("mobile-layers-close");
+  var mobileModePicker = document.getElementById("mobile-mode-picker");
+  var fabMode = document.getElementById("fab-mode");
+  var fabModeImg = document.getElementById("fab-mode-img");
+  var fabLayers = document.getElementById("fab-layers");
+
+  function isMobileView() { return window.innerWidth <= 768; }
+
+  /* ---- Mobile FAB controls ---- */
   (function () {
-    var panel = document.getElementById("control-panel");
-    var handle = document.getElementById("sheet-handle");
-    if (!panel || !handle) return;
+    if (!fabLayers || !fabMode) return;
 
-    function isMobile() { return window.innerWidth <= 768; }
+    var MODE_ICONS = {
+      pin: fabModeImg ? fabModeImg.src.replace(/[^/]+$/, "") + "pin.png" : "",
+      polygon: fabModeImg ? fabModeImg.src.replace(/[^/]+$/, "") + "polygon.png" : "",
+      cleanup: fabModeImg ? fabModeImg.src.replace(/[^/]+$/, "") + "leaf.png" : "",
+    };
+    // Resolve icon URLs from the static img tags already in DOM
+    (function resolveIcons() {
+      document.querySelectorAll("[data-pick-mode]").forEach(function (btn) {
+        var img = btn.querySelector("img");
+        if (img) MODE_ICONS[btn.dataset.pickMode] = img.src;
+      });
+    }());
 
-    function toggleSheet() {
-      if (!isMobile()) return;
-      panel.classList.toggle("is-expanded");
+    var mobileMode = "pin"; // pin | polygon | cleanup
+
+    function setMobileMode(mode) {
+      mobileMode = mode;
+      // Update FAB icon
+      if (fabModeImg && MODE_ICONS[mode]) fabModeImg.src = MODE_ICONS[mode];
+      // Highlight active pick btn
+      document.querySelectorAll("[data-pick-mode]").forEach(function (btn) {
+        btn.classList.toggle("is-active", btn.dataset.pickMode === mode);
+      });
+      // Drive the underlying mode system
+      if (mode === "cleanup") {
+        setMode("cleanup");
+      } else {
+        setMode("report");
+        if (mode === "pin") {
+          cancelReportSubMode();
+          reportSubMode = "pin";
+          map.getContainer().style.cursor = "crosshair";
+          U.announce("Tap the map to place a pin.");
+        } else if (mode === "polygon") {
+          cancelReportSubMode();
+          reportSubMode = "area";
+          drawControl = new L.Draw.Polygon(map, {
+            shapeOptions: { color: COLORS.route, weight: 3, fillOpacity: 0.15 },
+          });
+          drawControl.enable();
+          U.announce("Draw a polygon on the map.");
+        }
+      }
+      mobileModePicker.classList.add("hidden");
     }
 
-    handle.addEventListener("click", toggleSheet);
-    handle.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSheet(); }
+    // Layers FAB
+    fabLayers.addEventListener("click", function (e) {
+      e.stopPropagation();
+      mobileLayersCard.classList.toggle("hidden");
+      mobileModePicker.classList.add("hidden");
+    });
+    if (mobileLayersClose) {
+      mobileLayersClose.addEventListener("click", function () {
+        mobileLayersCard.classList.add("hidden");
+      });
+    }
+
+    // Mobile layer checkbox syncs with desktop checkbox
+    var mobLayerChk = document.getElementById("layer-district3-mob");
+    var deskLayerChk = document.getElementById("layer-district3");
+    if (mobLayerChk && deskLayerChk) {
+      mobLayerChk.addEventListener("change", function () {
+        deskLayerChk.checked = mobLayerChk.checked;
+        deskLayerChk.dispatchEvent(new Event("change"));
+      });
+    }
+
+    // Mode FAB — tap opens/closes picker
+    fabMode.addEventListener("click", function (e) {
+      e.stopPropagation();
+      mobileModePicker.classList.toggle("hidden");
+      mobileLayersCard.classList.add("hidden");
     });
 
-    // Collapse sheet when map is tapped
-    map.on("click", function () {
-      if (isMobile()) panel.classList.remove("is-expanded");
+    // Pick a mode from the picker
+    document.querySelectorAll("[data-pick-mode]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (!requireAuth()) return;
+        setMobileMode(btn.dataset.pickMode);
+      });
     });
+
+    // Close cards when tapping the map
+    map.on("click", function () {
+      if (!isMobileView()) return;
+      mobileLayersCard.classList.add("hidden");
+      mobileModePicker.classList.add("hidden");
+    });
+
+    // Mobile detail card close
+    if (mobileDetailClose) {
+      mobileDetailClose.addEventListener("click", function () {
+        mobileDetailCard.classList.add("hidden");
+      });
+    }
+
+    // Photo lightbox delegation for mobile detail body
+    if (mobileDetailBody) {
+      mobileDetailBody.addEventListener("click", function (e) {
+        var img = e.target.closest("img");
+        if (img) {
+          var lb = document.getElementById("photo-lightbox");
+          var lbImg = document.getElementById("photo-lightbox-img");
+          if (lb && lbImg) {
+            lbImg.src = img.src;
+            lbImg.alt = img.alt || "";
+            lb.classList.remove("hidden");
+            document.body.style.overflow = "hidden";
+          }
+        }
+      });
+    }
   }());
 
   /* ---- Photo lightbox ---- */
@@ -335,7 +443,13 @@
   }
 
   function showDetail(siteId) {
-    setDetail('<p style="color:var(--color-text-muted)">Loading\u2026</p>');
+    var mobile = isMobileView();
+    if (mobile) {
+      mobileDetailBody.innerHTML = '<p style="color:var(--color-text-muted)">Loading\u2026</p>';
+      mobileDetailCard.classList.remove("hidden");
+    } else {
+      setDetail('<p style="color:var(--color-text-muted)">Loading\u2026</p>');
+    }
     var url = config.endpoints.trashUpdateBase + siteId + "/detail/";
     U.fetchJson(url).then(function (site) {
       var html = '<div class="detail-panel">';
@@ -403,17 +517,31 @@
       }
 
       html += '</div>';
-      setDetail(html);
 
-      // Bind mark cleaned button in detail panel
-      var cleanBtn = detailContent.querySelector("[data-open-cleaned]");
-      if (cleanBtn) {
-        cleanBtn.addEventListener("click", function () {
-          openCleanedModal(cleanBtn.getAttribute("data-open-cleaned"));
-        });
+      var cleanBtn;
+      if (mobile) {
+        mobileDetailBody.innerHTML = html;
+        cleanBtn = mobileDetailBody.querySelector("[data-open-cleaned]");
+        if (cleanBtn) {
+          cleanBtn.addEventListener("click", function () {
+            openCleanedModal(cleanBtn.getAttribute("data-open-cleaned"));
+          });
+        }
+      } else {
+        setDetail(html);
+        cleanBtn = detailContent.querySelector("[data-open-cleaned]");
+        if (cleanBtn) {
+          cleanBtn.addEventListener("click", function () {
+            openCleanedModal(cleanBtn.getAttribute("data-open-cleaned"));
+          });
+        }
       }
     }).catch(function () {
-      setDetail('<p style="color:var(--color-text-muted)">Unable to load details.</p>');
+      if (mobile) {
+        mobileDetailBody.innerHTML = '<p style="color:var(--color-text-muted)">Unable to load details.</p>';
+      } else {
+        setDetail('<p style="color:var(--color-text-muted)">Unable to load details.</p>');
+      }
     });
   }
 

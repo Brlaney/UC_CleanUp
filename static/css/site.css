@@ -875,6 +875,13 @@ button:disabled,
   color: var(--color-text-secondary);
 }
 
+@media (max-width: 768px) {
+  .brand-icon {
+    height: 36px;
+    width: 36px;
+  }
+}
+
 @media (max-width: 900px) {
   .hamburger {
     display: flex;

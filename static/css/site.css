@@ -885,6 +885,8 @@ button:disabled,
 @media (max-width: 900px) {
   .hamburger {
     display: flex;
+    aspect-ratio: 1;
+    flex-shrink: 0;
   }
 
   .topbar-inner {

@@ -1,4 +1,4 @@
-# Upper-Cumberland CleanUp
+# <img src="images/logo.png" alt="" height="48" align="center"> Upper-Cumberland CleanUp
 
 Interactive web map for reporting trash and organizing cleanup efforts in the Upper Cumberland region of Tennessee — starting with Putnam County Commission District 3.
 
@@ -20,8 +20,16 @@ Interactive web map for reporting trash and organizing cleanup efforts in the Up
 
 <table>
 <tr>
-<td><img src="images/Sample_1.png" alt="Report mode with site detail" width="420"></td>
-<td><img src="images/Sample_2.png" alt="Completed cleanups page" width="420"></td>
+<td><img src="images/Demo_1.png" alt="Report mode with site detail" width="420"></td>
+<td><img src="images/Demo_2.png" alt="Completed cleanups page" width="420"></td>
+</tr>
+<tr>
+<td><img src="images/Demo_3.png" alt="District 3 boundary with site detail" width="420"></td>
+<td><img src="images/Demo_4.png" alt="Cleanup mode draw area" width="420"></td>
+</tr>
+<tr>
+<td><img src="images/Sample_1.png" alt="Sample report view" width="420"></td>
+<td><img src="images/Sample_2.png" alt="Sample cleanup view" width="420"></td>
 </tr>
 </table>
 

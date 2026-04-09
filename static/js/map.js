@@ -78,7 +78,6 @@
   var mobileLayersClose = document.getElementById("mobile-layers-close");
   var mobileModePicker = document.getElementById("mobile-mode-picker");
   var fabMode = document.getElementById("fab-mode");
-  var fabModeImg = document.getElementById("fab-mode-img");
   var fabLayers = document.getElementById("fab-layers");
 
   function isMobileView() { return window.innerWidth <= 768; }
@@ -87,25 +86,19 @@
   (function () {
     if (!fabLayers || !fabMode) return;
 
-    var MODE_ICONS = {
-      pin: fabModeImg ? fabModeImg.src.replace(/[^/]+$/, "") + "pin.png" : "",
-      polygon: fabModeImg ? fabModeImg.src.replace(/[^/]+$/, "") + "polygon.png" : "",
-      cleanup: fabModeImg ? fabModeImg.src.replace(/[^/]+$/, "") + "leaf.png" : "",
-    };
-    // Resolve icon URLs from the static img tags already in DOM
-    (function resolveIcons() {
-      document.querySelectorAll("[data-pick-mode]").forEach(function (btn) {
-        var img = btn.querySelector("img");
-        if (img) MODE_ICONS[btn.dataset.pickMode] = img.src;
-      });
-    }());
+    // Resolve icon URLs from the picker img elements (always present in DOM)
+    var MODE_ICONS = {};
+    document.querySelectorAll("[data-pick-mode]").forEach(function (btn) {
+      var img = btn.querySelector("img");
+      if (img) MODE_ICONS[btn.dataset.pickMode] = img.src;
+    });
 
     var mobileMode = "pin"; // pin | polygon | cleanup
 
     function setMobileMode(mode) {
       mobileMode = mode;
-      // Update FAB icon
-      if (fabModeImg && MODE_ICONS[mode]) fabModeImg.src = MODE_ICONS[mode];
+      // Update FAB background image
+      if (fabMode && MODE_ICONS[mode]) fabMode.style.backgroundImage = "url(" + MODE_ICONS[mode] + ")";
       // Highlight active pick btn
       document.querySelectorAll("[data-pick-mode]").forEach(function (btn) {
         btn.classList.toggle("is-active", btn.dataset.pickMode === mode);

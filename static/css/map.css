@@ -676,12 +676,12 @@
     width: 52px;
     height: 52px;
     border-radius: 50%;
-    background: #fff;
+    background-color: #fff;
+    background-size: 68%;
+    background-repeat: no-repeat;
+    background-position: center;
     border: none;
     box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     cursor: pointer;
     flex-shrink: 0;
     -webkit-tap-highlight-color: transparent;
@@ -691,13 +691,6 @@
   .fab:active {
     transform: scale(0.91);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  }
-
-  .fab img {
-    width: 72%;
-    height: 72%;
-    object-fit: contain;
-    pointer-events: none;
   }
 
   /* ---- Layers card & mode picker shared base ---- */

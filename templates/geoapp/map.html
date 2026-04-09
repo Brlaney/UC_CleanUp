@@ -96,12 +96,10 @@
 
 <!-- Mobile FAB stack -->
 <div class="mobile-fab-stack" id="mobile-fab-stack" aria-label="Map actions">
-    <button class="fab fab--mode" id="fab-mode" type="button" aria-label="Select mode" aria-haspopup="true">
-        <img src="{% static 'images/pin.png' %}" alt="" id="fab-mode-img">
-    </button>
-    <button class="fab fab--layers" id="fab-layers" type="button" aria-label="Layers">
-        <img src="{% static 'images/layers.png' %}" alt="" id="fab-layers-img">
-    </button>
+    <button class="fab fab--mode" id="fab-mode" type="button" aria-label="Select mode" aria-haspopup="true"
+        style="background-image: url('{% static 'images/pin.png' %}')"></button>
+    <button class="fab fab--layers" id="fab-layers" type="button" aria-label="Layers"
+        style="background-image: url('{% static 'images/layers.png' %}')"></button>
 </div>
 
 <!-- Mobile layers card -->

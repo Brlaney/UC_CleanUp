@@ -885,7 +885,8 @@ button:disabled,
 @media (max-width: 900px) {
   .hamburger {
     display: flex;
-    aspect-ratio: 1;
+    width: 42px;
+    height: 36px;
     flex-shrink: 0;
   }
 

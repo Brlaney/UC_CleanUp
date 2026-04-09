@@ -695,8 +695,8 @@
   }
 
   .fab img {
-    width: 76px;
-    height: 76px;
+    width: 200px;
+    height: 200px;
     object-fit: contain;
     flex-shrink: 0;
     pointer-events: none;

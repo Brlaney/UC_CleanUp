@@ -15,10 +15,16 @@ def _env_list(name, default=""):
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
 DEBUG = os.getenv("DEBUG", "1") == "1"
-ALLOWED_HOSTS = _env_list("ALLOWED_HOSTS", "127.0.0.1,localhost,192.168.1.37")
+ALLOWED_HOSTS = _env_list(
+    "ALLOWED_HOSTS",
+    "uc-cleanup.com,www.uc-cleanup.com,upper-cumberland-cleanup.onrender.com,127.0.0.1,localhost,192.168.1.37",
+)
 if DEBUG:
     ALLOWED_HOSTS.append("*")
-CSRF_TRUSTED_ORIGINS = _env_list("CSRF_TRUSTED_ORIGINS")
+CSRF_TRUSTED_ORIGINS = _env_list(
+    "CSRF_TRUSTED_ORIGINS",
+    "https://uc-cleanup.com,https://www.uc-cleanup.com,https://upper-cumberland-cleanup.onrender.com",
+)
 
 
 # Application definition

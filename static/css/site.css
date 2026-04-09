@@ -492,8 +492,8 @@ button:disabled,
 }
 
 .brand-icon {
-  height: 36px;
-  width: 36px;
+  height: 54px;
+  width: 54px;
   object-fit: contain;
   flex-shrink: 0;
   display: block;

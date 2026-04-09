@@ -96,11 +96,11 @@
 
 <!-- Mobile FAB stack -->
 <div class="mobile-fab-stack" id="mobile-fab-stack" aria-label="Map actions">
-    <button class="fab fab--layers" id="fab-layers" type="button" aria-label="Layers">
-        <img src="{% static 'images/layers.png' %}" alt="" width="26" height="26">
-    </button>
     <button class="fab fab--mode" id="fab-mode" type="button" aria-label="Select mode" aria-haspopup="true">
-        <img src="{% static 'images/pin.png' %}" alt="" width="26" height="26" id="fab-mode-img">
+        <img src="{% static 'images/pin.png' %}" alt="" id="fab-mode-img">
+    </button>
+    <button class="fab fab--layers" id="fab-layers" type="button" aria-label="Layers">
+        <img src="{% static 'images/layers.png' %}" alt="" id="fab-layers-img">
     </button>
 </div>
 
@@ -122,7 +122,7 @@
 <div class="mobile-mode-picker hidden" id="mobile-mode-picker" role="menu">
     <button class="mode-pick-btn is-active" data-pick-mode="pin" type="button" role="menuitem">
         <img src="{% static 'images/pin.png' %}" alt="" width="22" height="22">
-        <span>Place Pin</span>
+        <span>Drop a Pin</span>
     </button>
     <button class="mode-pick-btn" data-pick-mode="polygon" type="button" role="menuitem">
         <img src="{% static 'images/polygon.png' %}" alt="" width="22" height="22">
@@ -130,7 +130,7 @@
     </button>
     <button class="mode-pick-btn" data-pick-mode="cleanup" type="button" role="menuitem">
         <img src="{% static 'images/leaf.png' %}" alt="" width="22" height="22">
-        <span>Find Cleanup</span>
+        <span>Cleanup Mode</span>
     </button>
 </div>
 

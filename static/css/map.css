@@ -684,7 +684,6 @@
     justify-content: center;
     cursor: pointer;
     flex-shrink: 0;
-    overflow: hidden;
     -webkit-tap-highlight-color: transparent;
     transition: transform 0.12s ease, box-shadow 0.12s ease;
   }
@@ -695,10 +694,9 @@
   }
 
   .fab img {
-    width: 200px;
-    height: 200px;
+    width: 72%;
+    height: 72%;
     object-fit: contain;
-    flex-shrink: 0;
     pointer-events: none;
   }
 
@@ -725,12 +723,12 @@
 
   /* Position each relative to its FAB */
   .mobile-layers-card {
-    bottom: 9rem;
+    bottom: 2.5rem;
     min-width: 190px;
   }
 
   .mobile-mode-picker {
-    bottom: 4.5rem;
+    bottom: 6rem;
     min-width: 170px;
   }
 

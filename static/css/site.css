@@ -484,14 +484,23 @@ button:disabled,
 
 .brand {
   display: flex;
-  flex-direction: column;
-  gap: 0.18rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
   color: inherit;
   text-decoration: none;
 }
 
+.brand-icon {
+  height: 54px;
+  width: 54px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+}
+
 .brand-logo {
-  height: 36px;
+  height: 28px;
   width: auto;
   display: block;
 }
@@ -864,6 +873,13 @@ button:disabled,
 .empty-state p {
   margin: 0;
   color: var(--color-text-secondary);
+}
+
+@media (max-width: 768px) {
+  .brand-icon {
+    height: 36px;
+    width: 36px;
+  }
 }
 
 @media (max-width: 900px) {

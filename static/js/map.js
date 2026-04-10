@@ -282,28 +282,23 @@
     [-90, -180], [90, -180], [90, 180], [-90, 180], [-90, -180],
   ];
 
+  // Map of slug → Leaflet layer, populated after loadDistricts()
+  var districtLayers = {};
+
   function loadDistricts() {
     U.fetchJson(config.endpoints.districts).then(function (data) {
       var districts = data.districts || [];
       if (!districts.length) return;
 
-      // Find the county boundary (mask source) and inner districts
       var county = null;
       var innerDistricts = [];
       districts.forEach(function (d) {
-        if (d.slug === "putnam-county") {
-          county = d;
-        } else {
-          innerDistricts.push(d);
-        }
+        if (d.slug === "putnam-county") { county = d; }
+        else { innerDistricts.push(d); }
       });
+      if (!county && districts.length) county = districts[0];
 
-      // If no separate county entry, use the first district as both
-      if (!county && districts.length) {
-        county = districts[0];
-      }
-
-      // Build outside mask from county boundary
+      // Outside mask from county boundary
       if (county) {
         var geom = county.geometry;
         var holes = [];
@@ -314,51 +309,66 @@
         } else if (geom.type === "Polygon") {
           holes.push(geom.coordinates[0].map(function (c) { return [c[1], c[0]]; }));
         }
+        outsideMaskLayer = L.polygon(
+          [WORLD_RING.map(function (c) { return [c[0], c[1]]; })].concat(holes),
+          { pane: "maskPane", color: "transparent", fillColor: COLORS.maskColor, fillOpacity: COLORS.maskOpacity, interactive: false }
+        ).addTo(map);
 
-        var worldLatLngs = WORLD_RING.map(function (c) { return [c[0], c[1]]; });
-        var maskCoords = [worldLatLngs].concat(holes);
-        outsideMaskLayer = L.polygon(maskCoords, {
-          pane: "maskPane",
-          color: "transparent",
-          fillColor: COLORS.maskColor,
-          fillOpacity: COLORS.maskOpacity,
-          interactive: false,
-        }).addTo(map);
-
-        // County outline
         var countyLayer = L.geoJSON(geom, {
-          pane: "districtPane",
-          interactive: false,
-          style: {
-            color: COLORS.district,
-            weight: 2,
-            fillOpacity: 0,
-            dashArray: "6 4",
-          },
-        });
-        countyLayer.addTo(map);
-
-        // Fit map to county
+          pane: "districtPane", interactive: false,
+          style: { color: COLORS.district, weight: 2, fillOpacity: 0, dashArray: "6 4" },
+        }).addTo(map);
         map.fitBounds(countyLayer.getBounds(), { padding: [30, 30] });
       }
 
-      // Render inner district boundaries (e.g. District 3)
+      // Sort inner districts numerically by name ("District 1", "District 2", …)
+      innerDistricts.sort(function (a, b) {
+        var na = parseInt(a.name.replace(/\D/g, ""), 10) || 0;
+        var nb = parseInt(b.name.replace(/\D/g, ""), 10) || 0;
+        return na - nb;
+      });
+
+      // Render each district boundary + build layer toggle checkboxes
+      var desktopContainer = document.getElementById("layer-toggles");
+      var mobileContainer  = document.getElementById("layer-toggles-mob");
+
       innerDistricts.forEach(function (d) {
         var layer = L.geoJSON(d.geometry, {
           pane: "districtPane",
-          style: {
-            color: COLORS.district,
-            weight: 3,
-            fillColor: COLORS.districtFill,
-            fillOpacity: 0.12,
-          },
+          style: { color: COLORS.district, weight: 2.5, fillColor: COLORS.districtFill, fillOpacity: 0.10 },
         });
-        layer.bindTooltip(d.name, { permanent: true, direction: "center", className: "district-label" });
+        layer.bindTooltip(d.name, { permanent: false, direction: "center", className: "district-label" });
         layer.addTo(map);
-        districtBoundaryLayer = layer;
+        districtLayers[d.slug] = layer;
+
+        // Build a checkbox label for desktop and mobile
+        [desktopContainer, mobileContainer].forEach(function (container) {
+          if (!container) return;
+          var id = "layer-chk-" + d.slug + (container === mobileContainer ? "-mob" : "");
+          var label = document.createElement("label");
+          label.className = "layer-toggle";
+          label.innerHTML =
+            '<input type="checkbox" id="' + id + '" checked data-district-slug="' + d.slug + '">' +
+            '<span>' + d.name + '</span>';
+          container.appendChild(label);
+
+          label.querySelector("input").addEventListener("change", function (e) {
+            var targetLayer = districtLayers[d.slug];
+            if (!targetLayer) return;
+            if (e.target.checked) { targetLayer.addTo(map); }
+            else { targetLayer.remove(); }
+            // Keep the paired checkbox in sync
+            var pairedId = container === mobileContainer
+              ? "layer-chk-" + d.slug
+              : "layer-chk-" + d.slug + "-mob";
+            var paired = document.getElementById(pairedId);
+            if (paired) paired.checked = e.target.checked;
+          });
+        });
       });
+
     }).catch(function () {
-      // Districts may not be seeded yet
+      // Districts may not be seeded yet; fail silently
     });
   }
 
@@ -725,19 +735,6 @@
   U.setupPhotoPreview("trash-photos", "trash-photo-preview", 5);
   U.setupPhotoPreview("cleaned-before-photos", "before-photo-preview", 5);
   U.setupPhotoPreview("cleaned-after-photos", "after-photo-preview", 5);
-
-  /* ---- Layer toggles ---- */
-  var layerDistrict3Chk = document.getElementById("layer-district3");
-  if (layerDistrict3Chk) {
-    layerDistrict3Chk.addEventListener("change", function () {
-      if (!districtBoundaryLayer) return;
-      if (layerDistrict3Chk.checked) {
-        districtBoundaryLayer.addTo(map);
-      } else {
-        districtBoundaryLayer.remove();
-      }
-    });
-  }
 
   /* ---- Init ---- */
   setMode("report");

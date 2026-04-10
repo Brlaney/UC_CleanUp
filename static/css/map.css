@@ -799,6 +799,7 @@
   .mode-pick-btn {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 0.65rem;
     padding: 0.6rem 0.75rem;
     border: none;

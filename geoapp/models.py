@@ -87,7 +87,7 @@ class TrashSite(models.Model):
     description = models.TextField(blank=True)
     severity = models.CharField(max_length=10, choices=Severity.choices, blank=True)
     hazard_flag = models.BooleanField(default=False)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="trash_sites_created")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="trash_sites_created")
     claimed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="trash_sites_claimed"
     )
@@ -113,7 +113,7 @@ class RouteCleanup(models.Model):
     notes = models.TextField(blank=True)
     distance_miles = models.FloatField(default=0.0)
     time_spent_minutes = models.PositiveIntegerField(null=True, blank=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="routes_created")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="routes_created")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -135,7 +135,7 @@ class CleanupProof(models.Model):
     route_cleanup = models.ForeignKey("RouteCleanup", on_delete=models.CASCADE, null=True, blank=True, related_name="proofs")
     note = models.TextField(blank=True)
     bags_count = models.PositiveIntegerField(default=0)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="proofs_created")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="proofs_created")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -179,7 +179,7 @@ class ActivityLog(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     activity_type = models.CharField(max_length=30, choices=ActivityType.choices, db_index=True)
-    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="activity_logs")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="activity_logs")
     trash_site = models.ForeignKey(TrashSite, on_delete=models.CASCADE, null=True, blank=True, related_name="activity_logs")
     route_cleanup = models.ForeignKey(
         RouteCleanup, on_delete=models.CASCADE, null=True, blank=True, related_name="activity_logs"
@@ -192,7 +192,7 @@ class ActivityLog(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.activity_type} by {self.actor}"
+        return f"{self.activity_type} by {self.actor or 'deleted user'}"
 
 
 class FeedbackEntry(models.Model):
@@ -211,7 +211,7 @@ class FeedbackEntry(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN, db_index=True)
     message = models.TextField()
     page_url = models.CharField(max_length=500, blank=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="feedback_entries")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="feedback_entries")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -219,7 +219,7 @@ class FeedbackEntry(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.feedback_type} from {self.created_by}"
+        return f"{self.feedback_type} from {self.created_by or 'deleted user'}"
 
 
 class IPBan(models.Model):

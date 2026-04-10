@@ -746,7 +746,7 @@
 
   /* Position mode picker relative to FAB */
   .mobile-mode-picker {
-    bottom: 6rem;
+    bottom: calc(6rem - 15px);
     min-width: 170px;
   }
 

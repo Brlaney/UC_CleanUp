@@ -1,10 +1,12 @@
 import json
 from datetime import timedelta
 
+from django.conf import settings
+from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import login
 from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.contrib.gis.geos import GEOSGeometry, MultiPolygon, Point, Polygon
 from django.db import connection
@@ -12,6 +14,8 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods
+
+User = get_user_model()
 
 from django_ratelimit.decorators import ratelimit
 
@@ -130,8 +134,8 @@ def _serialize_trash_site(site, user=None):
         "description": site.description,
         "severity": site.severity,
         "hazard_flag": site.hazard_flag,
-        "created_by": site.created_by.username,
-        "claimed_by": site.claimed_by.username if site.claimed_by else None,
+        "created_by": site.created_by.username if site.created_by_id else "Anonymous",
+        "claimed_by": site.claimed_by.username if site.claimed_by_id else None,
         "created_at": site.created_at.isoformat(),
         "updated_at": site.updated_at.isoformat(),
         "cleaned_at": site.cleaned_at.isoformat() if site.cleaned_at else None,
@@ -149,7 +153,7 @@ def _serialize_trash_site(site, user=None):
                 "id": str(proof.id),
                 "note": proof.note,
                 "bags_count": proof.bags_count,
-                "created_by": proof.created_by.username,
+                "created_by": proof.created_by.username if proof.created_by_id else "Anonymous",
                 "created_at": proof.created_at.isoformat(),
                 "photos": _photo_list_for_proof(proof),
             }
@@ -191,6 +195,16 @@ def _site_to_feature(site, user=None):
 # HTML views
 # ---------------------------------------------------------------------------
 
+@login_required
+def profile_view(request):
+    reports_count = TrashSite.objects.filter(created_by=request.user).count()
+    cleanups_count = CleanupProof.objects.filter(created_by=request.user).count()
+    return render(request, "geoapp/profile.html", {
+        "reports_count": reports_count,
+        "cleanups_count": cleanups_count,
+    })
+
+
 def map_view(request):
     return render(request, "geoapp/map.html")
 
@@ -218,7 +232,7 @@ def cleanups_view(request):
             "description": site.description,
             "severity": site.severity,
             "cleaned_at": site.cleaned_at,
-            "created_by": site.created_by.username,
+            "created_by": site.created_by.username if site.created_by_id else "Anonymous",
             "bags_total": sum(p.bags_count for p in site.proofs.all()),
             "photos": photos,
         })
@@ -250,6 +264,28 @@ def signup_view(request):
     else:
         form = UserCreationForm()
     return render(request, "registration/signup.html", {"form": form})
+
+
+def forgot_username_view(request):
+    if request.method == "POST":
+        email = request.POST.get("email", "").strip()
+        if email:
+            users = User.objects.filter(email__iexact=email)
+            if users.exists():
+                usernames = ", ".join(u.username for u in users)
+                send_mail(
+                    subject="Your District 3 CleanUp username",
+                    message=(
+                        f"Your username is: {usernames}\n\n"
+                        "If you did not request this, you can ignore this email."
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[email],
+                    fail_silently=True,
+                )
+        # Always show the done page — never reveal whether the email exists
+        return render(request, "registration/forgot_username_done.html")
+    return render(request, "registration/forgot_username.html")
 
 
 # ---------------------------------------------------------------------------
@@ -338,7 +374,7 @@ def cleanups_list_api(request):
             "description": site.description,
             "severity": site.severity,
             "cleaned_at": site.cleaned_at.isoformat() if site.cleaned_at else None,
-            "created_by": site.created_by.username,
+            "created_by": site.created_by.username if site.created_by_id else "Anonymous",
             "bags_total": sum(p.bags_count for p in site.proofs.all()),
             "photos": photos,
         })

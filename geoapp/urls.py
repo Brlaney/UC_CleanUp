@@ -8,6 +8,7 @@ urlpatterns = [
     path("cleanups/", views.cleanups_view, name="cleanups"),
     path("about/", views.about_view, name="about"),
     path("healthz", views.healthz, name="healthz"),
+    path("profile/", views.profile_view, name="profile"),
 
     # Public JSON API
     path("api/features/", views.features_api, name="api_features"),

@@ -390,6 +390,7 @@
       innerDistricts.forEach(function (d) {
         var layer = L.geoJSON(d.geometry, {
           pane: "districtPane",
+          interactive: false,
           style: { color: COLORS.district, weight: 2.5, fillColor: COLORS.districtFill, fillOpacity: 0.10 },
         });
         layer.bindTooltip(d.name, { permanent: false, direction: "center", className: "district-label" });

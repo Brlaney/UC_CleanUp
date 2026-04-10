@@ -74,17 +74,14 @@
   var mobileDetailCard = document.getElementById("mobile-detail-card");
   var mobileDetailBody = document.getElementById("mobile-detail-body");
   var mobileDetailClose = document.getElementById("mobile-detail-close");
-  var mobileLayersCard = document.getElementById("mobile-layers-card");
-  var mobileLayersClose = document.getElementById("mobile-layers-close");
   var mobileModePicker = document.getElementById("mobile-mode-picker");
   var fabMode = document.getElementById("fab-mode");
-  var fabLayers = document.getElementById("fab-layers");
 
   function isMobileView() { return window.innerWidth <= 768; }
 
   /* ---- Mobile FAB controls ---- */
   (function () {
-    if (!fabLayers || !fabMode) return;
+    if (!fabMode) return;
 
     // Resolve icon URLs from the picker img elements (always present in DOM)
     var MODE_ICONS = {};
@@ -126,33 +123,10 @@
       mobileModePicker.classList.add("hidden");
     }
 
-    // Layers FAB
-    fabLayers.addEventListener("click", function (e) {
-      e.stopPropagation();
-      mobileLayersCard.classList.toggle("hidden");
-      mobileModePicker.classList.add("hidden");
-    });
-    if (mobileLayersClose) {
-      mobileLayersClose.addEventListener("click", function () {
-        mobileLayersCard.classList.add("hidden");
-      });
-    }
-
-    // Mobile layer checkbox syncs with desktop checkbox
-    var mobLayerChk = document.getElementById("layer-district3-mob");
-    var deskLayerChk = document.getElementById("layer-district3");
-    if (mobLayerChk && deskLayerChk) {
-      mobLayerChk.addEventListener("change", function () {
-        deskLayerChk.checked = mobLayerChk.checked;
-        deskLayerChk.dispatchEvent(new Event("change"));
-      });
-    }
-
     // Mode FAB — tap opens/closes picker
     fabMode.addEventListener("click", function (e) {
       e.stopPropagation();
       mobileModePicker.classList.toggle("hidden");
-      mobileLayersCard.classList.add("hidden");
     });
 
     // Pick a mode from the picker
@@ -163,10 +137,9 @@
       });
     });
 
-    // Close cards when tapping the map
+    // Close picker when tapping the map
     map.on("click", function () {
       if (!isMobileView()) return;
-      mobileLayersCard.classList.add("hidden");
       mobileModePicker.classList.add("hidden");
     });
 
@@ -282,8 +255,71 @@
     [-90, -180], [90, -180], [90, 180], [-90, 180], [-90, -180],
   ];
 
+  var UC_COUNTY_CENTROIDS = {
+    "Cannon":     [35.8083940, -86.0624044],
+    "Clay":       [36.5457493, -85.5457173],
+    "Cumberland": [35.9523984, -84.9947614],
+    "DeKalb":     [35.9822191, -85.8335959],
+    "Fentress":   [36.3698921, -84.9377641],
+    "Jackson":    [36.3542499, -85.6741278],
+    "Macon":      [36.5377572, -86.0009596],
+    "Overton":    [36.3448504, -85.2830756],
+    "Pickett":    [36.5593638, -85.0757410],
+    "Putnam":     [36.1409404, -85.4961801],
+    "Smith":      [36.2566451, -85.9419149],
+    "Van Buren":  [35.6992335, -85.4584092],
+    "Warren":     [35.6782498, -85.7773428],
+    "White":      [35.9270486, -85.4557854],
+  };
+
   // Map of slug → Leaflet layer, populated after loadDistricts()
   var districtLayers = {};
+
+  // Expose for settings modal real-time toggling
+  window.mapDistrictToggle = function (slug, visible) {
+    var layer = districtLayers[slug];
+    if (!layer) return;
+    if (visible) { layer.addTo(map); } else { layer.remove(); }
+    var chk = document.getElementById("layer-chk-" + slug);
+    if (chk) chk.checked = visible;
+  };
+
+  function syncSelectAll(container) {
+    var allChk = container.querySelector("input[id^='layer-chk-all']");
+    if (!allChk) return;
+    var boxes = container.querySelectorAll("input[data-district-slug]");
+    var checkedCount = Array.from(boxes).filter(function (b) { return b.checked; }).length;
+    if (checkedCount === 0) {
+      allChk.checked = false;
+      allChk.indeterminate = false;
+    } else if (checkedCount === boxes.length) {
+      allChk.checked = true;
+      allChk.indeterminate = false;
+    } else {
+      allChk.checked = false;
+      allChk.indeterminate = true;
+    }
+  }
+
+  function applyMapPreferences(prefs, knownDistricts) {
+    var slugs = prefs.visible_district_slugs || [];
+    if (slugs.length) {
+      var desktopContainer = document.getElementById("layer-toggles");
+      knownDistricts.forEach(function (d) {
+        if (slugs.indexOf(d.slug) === -1) {
+          var layer = districtLayers[d.slug];
+          if (layer) layer.remove();
+          var chk = document.getElementById("layer-chk-" + d.slug);
+          if (chk) chk.checked = false;
+        }
+      });
+      if (desktopContainer) syncSelectAll(desktopContainer);
+    }
+    var county = prefs.default_county;
+    if (county && UC_COUNTY_CENTROIDS[county]) {
+      map.setView(UC_COUNTY_CENTROIDS[county], 12);
+    }
+  }
 
   function loadDistricts() {
     U.fetchJson(config.endpoints.districts).then(function (data) {
@@ -328,64 +364,31 @@
         return na - nb;
       });
 
-      // Render each district boundary + build layer toggle checkboxes
+      // Render each district boundary + build layer toggle checkboxes (desktop only)
       var desktopContainer = document.getElementById("layer-toggles");
-      var mobileContainer  = document.getElementById("layer-toggles-mob");
 
-      // Helper: update the Select All checkbox state for a container
-      function syncSelectAll(container, isMob) {
-        var allId = isMob ? "layer-chk-all-mob" : "layer-chk-all";
-        var allChk = document.getElementById(allId);
-        if (!allChk) return;
-        var boxes = container.querySelectorAll("input[data-district-slug]");
-        var checkedCount = Array.from(boxes).filter(function (b) { return b.checked; }).length;
-        if (checkedCount === 0) {
-          allChk.checked = false;
-          allChk.indeterminate = false;
-        } else if (checkedCount === boxes.length) {
-          allChk.checked = true;
-          allChk.indeterminate = false;
-        } else {
-          allChk.checked = false;
-          allChk.indeterminate = true;
-        }
-      }
-
-      // Prepend "Select All" row to each container
-      [desktopContainer, mobileContainer].forEach(function (container) {
-        if (!container) return;
-        var isMob = container === mobileContainer;
-        var allId = isMob ? "layer-chk-all-mob" : "layer-chk-all";
+      // "Select All" row
+      if (desktopContainer) {
         var divider = document.createElement("div");
         divider.className = "layer-toggle-divider";
-        var label = document.createElement("label");
-        label.className = "layer-toggle layer-toggle--all";
-        label.innerHTML = '<input type="checkbox" id="' + allId + '" checked><span>Select All</span>';
-        container.appendChild(label);
-        container.appendChild(divider);
+        var allLabel = document.createElement("label");
+        allLabel.className = "layer-toggle layer-toggle--all";
+        allLabel.innerHTML = '<input type="checkbox" id="layer-chk-all" checked><span>Select All</span>';
+        desktopContainer.appendChild(allLabel);
+        desktopContainer.appendChild(divider);
 
-        label.querySelector("input").addEventListener("change", function (e) {
+        allLabel.querySelector("input").addEventListener("change", function (e) {
           var checked = e.target.checked;
           e.target.indeterminate = false;
-          // Toggle every district layer and its paired checkbox
           innerDistricts.forEach(function (d) {
-            var slug = d.slug;
-            var chkId = isMob ? "layer-chk-" + slug + "-mob" : "layer-chk-" + slug;
-            var pairedId = isMob ? "layer-chk-" + slug : "layer-chk-" + slug + "-mob";
-            var chk = document.getElementById(chkId);
-            var paired = document.getElementById(pairedId);
+            var chk = document.getElementById("layer-chk-" + d.slug);
             if (chk) chk.checked = checked;
-            if (paired) paired.checked = checked;
-            // Also sync the paired container's Select All
-            var pairedAllId = isMob ? "layer-chk-all" : "layer-chk-all-mob";
-            var pairedAll = document.getElementById(pairedAllId);
-            if (pairedAll) { pairedAll.checked = checked; pairedAll.indeterminate = false; }
-            var targetLayer = districtLayers[slug];
+            var targetLayer = districtLayers[d.slug];
             if (!targetLayer) return;
             if (checked) { targetLayer.addTo(map); } else { targetLayer.remove(); }
           });
         });
-      });
+      }
 
       innerDistricts.forEach(function (d) {
         var layer = L.geoJSON(d.geometry, {
@@ -397,33 +400,32 @@
         layer.addTo(map);
         districtLayers[d.slug] = layer;
 
-        // Build a checkbox label for desktop and mobile
-        [desktopContainer, mobileContainer].forEach(function (container) {
-          if (!container) return;
-          var isMob = container === mobileContainer;
-          var id = "layer-chk-" + d.slug + (isMob ? "-mob" : "");
+        // Desktop checkbox
+        if (desktopContainer) {
+          var id = "layer-chk-" + d.slug;
           var label = document.createElement("label");
           label.className = "layer-toggle";
           label.innerHTML =
             '<input type="checkbox" id="' + id + '" checked data-district-slug="' + d.slug + '">' +
             '<span>' + d.name + '</span>';
-          container.appendChild(label);
+          desktopContainer.appendChild(label);
 
           label.querySelector("input").addEventListener("change", function (e) {
             var targetLayer = districtLayers[d.slug];
             if (!targetLayer) return;
             if (e.target.checked) { targetLayer.addTo(map); }
             else { targetLayer.remove(); }
-            // Sync paired container checkbox
-            var pairedId = isMob ? "layer-chk-" + d.slug : "layer-chk-" + d.slug + "-mob";
-            var paired = document.getElementById(pairedId);
-            if (paired) paired.checked = e.target.checked;
-            // Update Select All state for both containers
-            syncSelectAll(desktopContainer, false);
-            syncSelectAll(mobileContainer, true);
+            syncSelectAll(desktopContainer);
           });
-        });
+        }
       });
+
+      // Apply saved preferences (if authenticated)
+      if (isAuth && config.endpoints && config.endpoints.preferences) {
+        U.fetchJson(config.endpoints.preferences).then(function (prefs) {
+          applyMapPreferences(prefs, innerDistricts);
+        }).catch(function () {});
+      }
 
     }).catch(function () {
       // Districts may not be seeded yet; fail silently

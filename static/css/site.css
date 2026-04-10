@@ -571,6 +571,45 @@ button:disabled,
   font-weight: 700;
 }
 
+/* Settings icon button — shared base */
+.btn-settings {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.35rem;
+  padding: 0.45rem 0.75rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(245, 251, 255, 0.86);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.btn-settings:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  transform: none;
+}
+
+/* Label hidden on desktop — icon-only */
+.btn-settings-label {
+  display: none;
+}
+
+.btn-settings img {
+  display: block;
+  flex-shrink: 0;
+  /* SVG will tint white via filter */
+  filter: brightness(0) invert(1);
+  opacity: 0.86;
+}
+
+.btn-settings:hover img {
+  opacity: 1;
+}
+
 .content-shell {
   width: min(1180px, calc(100% - 2rem));
   margin: 0 auto;
@@ -674,6 +713,63 @@ button:disabled,
 
 .modal-card--narrow {
   width: min(520px, 100%);
+}
+
+.modal-card--settings {
+  width: min(480px, 100%);
+}
+
+.settings-fieldset {
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  margin: 0;
+}
+
+.settings-fieldset legend {
+  padding: 0 0.4rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.settings-district-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Used in settings modal district list (also in map.css for map panel) */
+.layer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.92rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.settings-loading {
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+}
+
+.settings-anon-note {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.92rem;
+}
+
+.settings-anon-note a {
+  color: var(--color-btn-primary-bg);
+  font-weight: 700;
+}
+
+.settings-actions {
+  align-items: center;
 }
 
 .modal-card h2 {
@@ -948,6 +1044,18 @@ button:disabled,
     gap: 0.5rem;
     padding-top: 0.5rem;
     border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  /* On mobile hamburger, settings shows icon + label full-width */
+  .btn-settings {
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 0.8rem;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .btn-settings-label {
+    display: inline;
   }
 
   .content-shell,

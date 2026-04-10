@@ -16,6 +16,7 @@ urlpatterns = [
     path("api/cleanups/", views.cleanups_list_api, name="api_cleanups_list"),
 
     # Authenticated JSON API
+    path("api/preferences/", views.preferences_api, name="api_preferences"),
     path("api/trash-sites/", views.trash_site_create_api, name="api_trash_site_create"),
     path("api/trash-sites/<uuid:site_id>/", views.trash_site_update_api, name="api_trash_site_update"),
     path("api/trash-sites/<uuid:site_id>/mark-cleaned/", views.trash_site_mark_cleaned_api, name="api_trash_site_mark_cleaned"),

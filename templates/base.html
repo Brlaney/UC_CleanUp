@@ -37,6 +37,10 @@
                 {% endif %}
             </nav>
             <div class="user-actions">
+                <button id="settings-open-btn" class="btn-settings" type="button" aria-label="Map Settings" aria-haspopup="dialog">
+                    <img src="{% static 'images/icons/settings.svg' %}" alt="" width="18" height="18">
+                    <span class="btn-settings-label">Settings</span>
+                </button>
                 {% if user.is_authenticated %}
                     <span class="user-pill">{{ user.username }}</span>
                     <button id="feedback-open-btn" class="btn btn-secondary btn-compact" type="button">Feedback</button>
@@ -90,10 +94,58 @@
     window.APP_BASE_CONFIG = {
         isAuthenticated: {{ user.is_authenticated|yesno:"true,false" }},
         endpoints: {
-            feedbackCreate: "{% url 'api_feedback_create' %}"
+            feedbackCreate: "{% url 'api_feedback_create' %}",
+            districts: "{% url 'api_districts' %}",
+            preferences: {% if user.is_authenticated %}"{% url 'api_preferences' %}"{% else %}null{% endif %}
         }
     };
 </script>
+<!-- Settings modal -->
+<div class="modal hidden" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+    <div class="modal-card modal-card--settings">
+        <h2 id="settings-modal-title">Map Settings</h2>
+        <p class="modal-copy">Choose which layers appear on the map.</p>
+        <form id="settings-form">
+            {% csrf_token %}
+            <label for="settings-county">Default County</label>
+            <select id="settings-county" name="default_county">
+                <option value="">-- All Counties --</option>
+                <option value="Cannon">Cannon</option>
+                <option value="Clay">Clay</option>
+                <option value="Cumberland">Cumberland</option>
+                <option value="DeKalb">DeKalb</option>
+                <option value="Fentress">Fentress</option>
+                <option value="Jackson">Jackson</option>
+                <option value="Macon">Macon</option>
+                <option value="Overton">Overton</option>
+                <option value="Pickett">Pickett</option>
+                <option value="Putnam">Putnam</option>
+                <option value="Smith">Smith</option>
+                <option value="Van Buren">Van Buren</option>
+                <option value="Warren">Warren</option>
+                <option value="White">White</option>
+            </select>
+            <fieldset class="settings-fieldset">
+                <legend>Visible Districts</legend>
+                <div id="settings-district-list" class="settings-district-list">
+                    <span class="settings-loading">Loading&hellip;</span>
+                </div>
+            </fieldset>
+            <div class="button-row settings-actions">
+                {% if user.is_authenticated %}
+                    <button class="btn btn-primary" type="submit" id="settings-save-btn">
+                        <span class="btn-label">Save Preferences</span>
+                        <span class="loading-spinner hidden" aria-hidden="true"></span>
+                    </button>
+                {% else %}
+                    <p class="settings-anon-note"><a href="{% url 'login' %}">Log in</a> to save your preferences.</p>
+                {% endif %}
+                <button class="btn btn-subtle" type="button" data-close-modal="settings-modal">Close</button>
+            </div>
+            <div id="settings-status" class="feedback-status" aria-live="polite"></div>
+        </form>
+    </div>
+</div>
 <script src="{% static 'js/utils.js' %}"></script>
 <script src="{% static 'js/base.js' %}"></script>
 {% block scripts %}{% endblock %}

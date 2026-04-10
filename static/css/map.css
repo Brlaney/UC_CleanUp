@@ -683,7 +683,6 @@
   .mobile-fab-stack {
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
     position: fixed;
     right: 1rem;
     bottom: 2.5rem;
@@ -745,21 +744,7 @@
     /* padding: 0.4rem; */
   }
 
-  /* Position each relative to its FAB */
-  .mobile-layers-card {
-    bottom: 2.5rem;
-    min-width: 190px;
-    max-height: 70vh;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .mobile-layers-card .mobile-card-body {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    flex: 1;
-  }
-
+  /* Position mode picker relative to FAB */
   .mobile-mode-picker {
     bottom: 6rem;
     min-width: 170px;

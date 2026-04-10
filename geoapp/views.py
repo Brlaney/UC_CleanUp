@@ -15,7 +15,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from django_ratelimit.decorators import ratelimit
 
-from .models import ActivityLog, CleanupProof, District, FeedbackEntry, Photo, TrashSite
+from .models import ActivityLog, CleanupProof, District, FeedbackEntry, Photo, TrashSite, UserMapPreference
 from .permissions import can_edit_trash_site, can_mark_cleaned, can_set_invalid_status, is_admin
 from .services import assign_district, log_activity
 from .validators import validate_photo_uploads
@@ -539,6 +539,27 @@ def trash_site_mark_cleaned_api(request, site_id):
     )
 
     return JsonResponse(_serialize_trash_site(site, user=request.user))
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def preferences_api(request):
+    pref, _ = UserMapPreference.objects.get_or_create(user=request.user)
+    if request.method == "GET":
+        return JsonResponse({
+            "default_county": pref.default_county,
+            "visible_district_slugs": pref.visible_district_slugs,
+        })
+    data = _load_payload(request)
+    pref.default_county = str(data.get("default_county", "")).strip()
+    slugs = data.get("visible_district_slugs")
+    if isinstance(slugs, list):
+        pref.visible_district_slugs = [str(s) for s in slugs]
+    pref.save()
+    return JsonResponse({
+        "default_county": pref.default_county,
+        "visible_district_slugs": pref.visible_district_slugs,
+    })
 
 
 @login_required

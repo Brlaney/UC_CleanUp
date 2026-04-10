@@ -236,3 +236,17 @@ class IPBan(models.Model):
 
     def __str__(self):
         return f"Ban {self.ip_address}"
+
+
+class UserMapPreference(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="map_preference",
+    )
+    default_county = models.CharField(max_length=100, blank=True)
+    visible_district_slugs = models.JSONField(default=list)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Map prefs for {self.user.username}"

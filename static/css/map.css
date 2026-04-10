@@ -738,6 +738,15 @@
   .mobile-layers-card {
     bottom: 2.5rem;
     min-width: 190px;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mobile-layers-card .mobile-card-body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
   }
 
   .mobile-mode-picker {

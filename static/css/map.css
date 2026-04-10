@@ -686,8 +686,8 @@
     padding: 0;
     margin: 0;
     border-radius: 50%;
-    background-color: transparent;
-    /* background-size: 80%; */
+    background-color: rgba(255, 255, 255, 0.8);
+    background-size: 80%;
     background-repeat: no-repeat;
     background-position: center;
     border: none;
@@ -702,13 +702,13 @@
   }
 
   .fab:hover {
-    background: transparent;
-    transform: none;
+    background-color: rgba(255, 255, 255, 1.0);
+    transform: none !important;
     box-shadow: 0 0 0 2.5px var(--color-district-accent);
   }
 
   .fab:active {
-    transform: scale(0.91);
+    /* transform: scale(0.91); */
     box-shadow: 0 0 0 2px var(--color-district-accent);
   }
 

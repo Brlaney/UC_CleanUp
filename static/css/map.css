@@ -687,7 +687,7 @@
     margin: 0;
     border-radius: 50%;
     background-color: transparent;
-    background-size: 80%;
+    /* background-size: 80%; */
     background-repeat: no-repeat;
     background-position: center;
     border: none;
@@ -697,12 +697,19 @@
     appearance: none;
     -webkit-appearance: none;
     -webkit-tap-highlight-color: transparent;
-    transform-origin: center center;
-    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    /* transform-origin: center center; */
+    /* transition: transform 0.12s ease, box-shadow 0.12s ease; */
+  }
+
+  .fab:hover {
+    background: transparent;
+    transform: none;
+    box-shadow: 0 0 0 2.5px var(--color-district-accent);
   }
 
   .fab:active {
     transform: scale(0.91);
+    box-shadow: 0 0 0 2px var(--color-district-accent);
   }
 
   /* ---- Layers card & mode picker shared base ---- */
@@ -715,15 +722,16 @@
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-md);
     border: 1px solid var(--color-border-soft);
+    justify-content: left;
   }
 
-  .mobile-card:not(.hidden) { display: block; }
+  /* .mobile-card:not(.hidden) { display: block; } */
 
   .mobile-mode-picker:not(.hidden) {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
-    padding: 0.4rem;
+    /* gap: 0.15rem; */
+    /* padding: 0.4rem; */
   }
 
   /* Position each relative to its FAB */
@@ -805,7 +813,7 @@
     max-height: 65vh;
     flex-direction: column;
     transform: translateY(100%);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); */
   }
 
   .mobile-detail-card:not(.hidden) {

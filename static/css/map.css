@@ -740,6 +740,7 @@
   .mobile-mode-picker:not(.hidden) {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     /* gap: 0.15rem; */
     /* padding: 0.4rem; */
   }

@@ -212,7 +212,8 @@
                 features: "{% url 'api_features' %}",
                 districts: "{% url 'api_districts' %}",
                 trashCreate: "{% url 'api_trash_site_create' %}",
-                trashUpdateBase: "/api/trash-sites/"
+                trashUpdateBase: "/api/trash-sites/",
+                preferences: {% if user.is_authenticated %}"{% url 'api_preferences' %}"{% else %}null{% endif %}
             }
         };
     </script>

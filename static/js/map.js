@@ -304,6 +304,7 @@
   function applyMapPreferences(prefs, knownDistricts) {
     var slugs = prefs.visible_district_slugs || [];
     if (slugs.length) {
+      // Hide districts not in the saved list and uncheck their boxes
       var desktopContainer = document.getElementById("layer-toggles");
       knownDistricts.forEach(function (d) {
         if (slugs.indexOf(d.slug) === -1) {
@@ -314,7 +315,23 @@
         }
       });
       if (desktopContainer) syncSelectAll(desktopContainer);
+
+      // Fit the map to the combined bounds of the visible districts
+      var combinedBounds = null;
+      slugs.forEach(function (slug) {
+        var layer = districtLayers[slug];
+        if (!layer) return;
+        var bounds = layer.getBounds();
+        if (!bounds.isValid()) return;
+        combinedBounds = combinedBounds ? combinedBounds.extend(bounds) : bounds;
+      });
+      if (combinedBounds && combinedBounds.isValid()) {
+        map.fitBounds(combinedBounds, { padding: [50, 50] });
+        return; // bounds already set — skip county centroid fallback
+      }
     }
+
+    // No specific districts saved (all visible) — fall back to county centroid
     var county = prefs.default_county;
     if (county && UC_COUNTY_CENTROIDS[county]) {
       map.setView(UC_COUNTY_CENTROIDS[county], 12);
@@ -609,6 +626,8 @@
   }
 
   /* ---- Mode switching ---- */
+  var topbarEl = document.querySelector(".topbar");
+
   function setMode(mode) {
     currentMode = mode;
     cancelReportSubMode();
@@ -620,6 +639,8 @@
 
     reportPanel.classList.toggle("hidden", mode !== "report");
     cleanupPanel.classList.toggle("hidden", mode !== "cleanup");
+
+    if (topbarEl) topbarEl.classList.toggle("mode-cleanup", mode === "cleanup");
 
     if (mode === "report") {
       U.announce("Report mode. Place a pin or draw an area on the map.");

@@ -65,19 +65,65 @@
     function renderDistrictCheckboxes(districts, checkedSlugs) {
       if (!settingsDistrictList) return;
       var allChecked = !checkedSlugs || !checkedSlugs.length;
+      var initialAllChecked = allChecked || (checkedSlugs && checkedSlugs.length === districts.length);
       settingsDistrictList.innerHTML = "";
+
+      // --- Select All / Deselect All row ---
+      var selectAllLabel = document.createElement("label");
+      selectAllLabel.className = "layer-toggle layer-toggle--all";
+      selectAllLabel.innerHTML =
+        '<input type="checkbox"' + (initialAllChecked ? " checked" : "") + ">" +
+        "<span>" + (initialAllChecked ? "Deselect All" : "Select All") + "</span>";
+      settingsDistrictList.appendChild(selectAllLabel);
+
+      var divider = document.createElement("div");
+      divider.className = "layer-toggle-divider";
+      settingsDistrictList.appendChild(divider);
+
+      // --- 2-column district grid ---
+      var grid = document.createElement("div");
+      grid.className = "settings-district-grid";
+      settingsDistrictList.appendChild(grid);
+
+      var selectAllChk = selectAllLabel.querySelector("input");
+      var selectAllSpan = selectAllLabel.querySelector("span");
+
+      function updateSelectAll() {
+        var boxes = grid.querySelectorAll("input[name='district_slugs']");
+        var checkedCount = Array.from(boxes).filter(function (b) { return b.checked; }).length;
+        var all = checkedCount === boxes.length;
+        var none = checkedCount === 0;
+        selectAllChk.checked = all;
+        selectAllChk.indeterminate = !all && !none;
+        selectAllSpan.textContent = all ? "Deselect All" : "Select All";
+      }
+
+      // Render each district into the grid
       districts.forEach(function (d) {
-        var checked = allChecked || checkedSlugs.indexOf(d.slug) !== -1;
+        var checked = allChecked || (checkedSlugs && checkedSlugs.indexOf(d.slug) !== -1);
         var label = document.createElement("label");
         label.className = "layer-toggle";
         label.innerHTML =
           '<input type="checkbox" name="district_slugs" value="' + d.slug + '"' + (checked ? " checked" : "") + ">" +
           "<span>" + d.name + "</span>";
         label.querySelector("input").addEventListener("change", function (e) {
-          // Real-time layer toggle on the map page if available
           if (window.mapDistrictToggle) window.mapDistrictToggle(d.slug, e.target.checked);
+          updateSelectAll();
         });
-        settingsDistrictList.appendChild(label);
+        grid.appendChild(label);
+      });
+
+      // Select All / Deselect All handler
+      selectAllChk.addEventListener("change", function (e) {
+        var checked = e.target.checked;
+        e.target.indeterminate = false;
+        grid.querySelectorAll("input[name='district_slugs']").forEach(function (chk) {
+          if (chk.checked !== checked) {
+            chk.checked = checked;
+            if (window.mapDistrictToggle) window.mapDistrictToggle(chk.value, checked);
+          }
+        });
+        selectAllSpan.textContent = checked ? "Deselect All" : "Select All";
       });
     }
 
@@ -114,7 +160,14 @@
       });
     }
 
-    settingsBtn.addEventListener("click", function () {
+    settingsBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      // Close hamburger dropdown before opening modal
+      var hamburgerEl = document.getElementById("hamburger-btn");
+      var navCollapseEl = document.getElementById("nav-collapse");
+      if (hamburgerEl) hamburgerEl.setAttribute("aria-expanded", "false");
+      if (navCollapseEl) navCollapseEl.classList.remove("is-open");
+      // Reset and open modal
       if (settingsCounty) settingsCounty.value = "";
       if (settingsDistrictList) settingsDistrictList.innerHTML = '<span class="settings-loading">Loading\u2026</span>';
       setSettingsStatus("");

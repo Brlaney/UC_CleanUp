@@ -415,6 +415,22 @@ button:disabled,
   font-size: 0.95rem;
 }
 
+.profile-member-since {
+  margin: 0 0 1.5rem;
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+}
+
+.profile-stats {
+  margin-bottom: 1.5rem;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .auth-link a {
   color: var(--color-btn-primary-bg);
   font-weight: 700;
@@ -432,6 +448,11 @@ button:disabled,
   background: var(--color-topbar-bg);
   color: var(--color-topbar-text);
   box-shadow: 0 14px 38px rgba(8, 39, 66, 0.18);
+  transition: background-color 0.3s ease;
+}
+
+.topbar.mode-cleanup {
+  background: #1f8654;
 }
 
 .topbar-inner {
@@ -722,8 +743,9 @@ button:disabled,
 .settings-fieldset {
   border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-sm);
-  padding: 0.75rem;
+  padding: 0.6rem 0.75rem 0.75rem;
   margin: 0;
+  min-width: 0; /* prevent fieldset from ignoring grid constraints */
 }
 
 .settings-fieldset legend {
@@ -736,9 +758,16 @@ button:disabled,
 .settings-district-list {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  max-height: 200px;
+  gap: 0.3rem;
+}
+
+.settings-district-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 1rem;
+  max-height: 190px;
   overflow-y: auto;
+  padding-right: 0.2rem;
 }
 
 /* Used in settings modal district list (also in map.css for map panel) */
@@ -787,7 +816,7 @@ button:disabled,
   gap: 0.85rem;
 }
 
-.modal-card label {
+.modal-card label:not(.layer-toggle) {
   display: flex;
   flex-direction: column;
   gap: 0.38rem;

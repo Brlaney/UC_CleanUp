@@ -42,7 +42,7 @@
                     <span class="btn-settings-label">Settings</span>
                 </button>
                 {% if user.is_authenticated %}
-                    <span class="user-pill">{{ user.username }}</span>
+                    <a class="user-pill" href="{% url 'profile' %}">{{ user.username }}</a>
                     <button id="feedback-open-btn" class="btn btn-secondary btn-compact" type="button">Feedback</button>
                     <form method="post" action="{% url 'logout' %}">
                         {% csrf_token %}

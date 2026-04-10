@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile - District 3 CleanUp{% endblock %}
+
+{% block content %}
+<section class="auth-wrap">
+    <h1>My Profile</h1>
+    <p class="profile-member-since">Member since {{ request.user.date_joined|date:"F j, Y" }}</p>
+
+    <div class="impact-grid profile-stats">
+        <div class="stat-card stat-card--reports">
+            <span class="stat-label">Sites Reported</span>
+            <strong>{{ reports_count }}</strong>
+            <small>trash sites you've reported</small>
+        </div>
+        <div class="stat-card stat-card--cleaned">
+            <span class="stat-label">Cleanups Submitted</span>
+            <strong>{{ cleanups_count }}</strong>
+            <small>sites you've helped clean up</small>
+        </div>
+    </div>
+
+    <div class="profile-actions">
+        <a class="btn btn-primary" href="{% url 'map' %}">Back to Map</a>
+    </div>
+</section>
+{% endblock %}

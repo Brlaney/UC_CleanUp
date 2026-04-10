@@ -86,6 +86,16 @@
   overflow-y: auto;
 }
 
+.layer-toggle--all {
+  font-weight: 700;
+}
+
+.layer-toggle-divider {
+  height: 1px;
+  background: var(--color-border-soft);
+  margin: 0.1rem 0;
+}
+
 .layer-toggle {
   display: flex;
   align-items: center;

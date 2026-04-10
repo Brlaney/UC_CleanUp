@@ -332,6 +332,61 @@
       var desktopContainer = document.getElementById("layer-toggles");
       var mobileContainer  = document.getElementById("layer-toggles-mob");
 
+      // Helper: update the Select All checkbox state for a container
+      function syncSelectAll(container, isMob) {
+        var allId = isMob ? "layer-chk-all-mob" : "layer-chk-all";
+        var allChk = document.getElementById(allId);
+        if (!allChk) return;
+        var boxes = container.querySelectorAll("input[data-district-slug]");
+        var checkedCount = Array.from(boxes).filter(function (b) { return b.checked; }).length;
+        if (checkedCount === 0) {
+          allChk.checked = false;
+          allChk.indeterminate = false;
+        } else if (checkedCount === boxes.length) {
+          allChk.checked = true;
+          allChk.indeterminate = false;
+        } else {
+          allChk.checked = false;
+          allChk.indeterminate = true;
+        }
+      }
+
+      // Prepend "Select All" row to each container
+      [desktopContainer, mobileContainer].forEach(function (container) {
+        if (!container) return;
+        var isMob = container === mobileContainer;
+        var allId = isMob ? "layer-chk-all-mob" : "layer-chk-all";
+        var divider = document.createElement("div");
+        divider.className = "layer-toggle-divider";
+        var label = document.createElement("label");
+        label.className = "layer-toggle layer-toggle--all";
+        label.innerHTML = '<input type="checkbox" id="' + allId + '" checked><span>Select All</span>';
+        container.appendChild(label);
+        container.appendChild(divider);
+
+        label.querySelector("input").addEventListener("change", function (e) {
+          var checked = e.target.checked;
+          e.target.indeterminate = false;
+          // Toggle every district layer and its paired checkbox
+          innerDistricts.forEach(function (d) {
+            var slug = d.slug;
+            var chkId = isMob ? "layer-chk-" + slug + "-mob" : "layer-chk-" + slug;
+            var pairedId = isMob ? "layer-chk-" + slug : "layer-chk-" + slug + "-mob";
+            var chk = document.getElementById(chkId);
+            var paired = document.getElementById(pairedId);
+            if (chk) chk.checked = checked;
+            if (paired) paired.checked = checked;
+            // Also sync the paired container's Select All
+            var pairedAllId = isMob ? "layer-chk-all" : "layer-chk-all-mob";
+            var pairedAll = document.getElementById(pairedAllId);
+            if (pairedAll) { pairedAll.checked = checked; pairedAll.indeterminate = false; }
+            var targetLayer = districtLayers[slug];
+            if (!targetLayer) return;
+            if (checked) { targetLayer.addTo(map); } else { targetLayer.remove(); }
+          });
+        });
+      });
+
       innerDistricts.forEach(function (d) {
         var layer = L.geoJSON(d.geometry, {
           pane: "districtPane",
@@ -344,7 +399,8 @@
         // Build a checkbox label for desktop and mobile
         [desktopContainer, mobileContainer].forEach(function (container) {
           if (!container) return;
-          var id = "layer-chk-" + d.slug + (container === mobileContainer ? "-mob" : "");
+          var isMob = container === mobileContainer;
+          var id = "layer-chk-" + d.slug + (isMob ? "-mob" : "");
           var label = document.createElement("label");
           label.className = "layer-toggle";
           label.innerHTML =
@@ -357,12 +413,13 @@
             if (!targetLayer) return;
             if (e.target.checked) { targetLayer.addTo(map); }
             else { targetLayer.remove(); }
-            // Keep the paired checkbox in sync
-            var pairedId = container === mobileContainer
-              ? "layer-chk-" + d.slug
-              : "layer-chk-" + d.slug + "-mob";
+            // Sync paired container checkbox
+            var pairedId = isMob ? "layer-chk-" + d.slug : "layer-chk-" + d.slug + "-mob";
             var paired = document.getElementById(pairedId);
             if (paired) paired.checked = e.target.checked;
+            // Update Select All state for both containers
+            syncSelectAll(desktopContainer, false);
+            syncSelectAll(mobileContainer, true);
           });
         });
       });

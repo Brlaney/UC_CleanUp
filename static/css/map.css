@@ -708,7 +708,7 @@
   }
 
   .fab:active {
-    /* transform: scale(0.91); */
+    transform: none !important;
     box-shadow: 0 0 0 2px var(--color-district-accent);
   }
 

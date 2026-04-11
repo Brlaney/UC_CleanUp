@@ -4,10 +4,11 @@
 {% block title %}UC CleanUp{% endblock %}
 
 {% block extra_head %}
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <link rel="preload" href="{% static 'images/logo_2.svg' %}" as="image">
+    <link rel="stylesheet" href="{% static 'vendor/leaflet.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/leaflet-draw.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/MarkerCluster.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/MarkerCluster.Default.css' %}">
     <link rel="stylesheet" href="{% static 'css/map.css' %}">
 {% endblock %}
 
@@ -301,13 +302,16 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
-    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script defer src="{% static 'vendor/leaflet.js' %}"></script>
+    <script defer src="{% static 'vendor/leaflet-draw.js' %}"></script>
+    <script defer src="{% static 'vendor/leaflet-heat.js' %}"></script>
+    <script defer src="{% static 'vendor/leaflet.markercluster.js' %}"></script>
     <script>
         window.APP_CONFIG = {
             isAuthenticated: {{ user.is_authenticated|yesno:"true,false" }},
+            // Districts inlined to avoid a 290 KB XHR on page load.
+            // map.js checks window.DISTRICTS_DATA before fetching /api/districts/.
+            districts: {{ districts_json|safe }},
             endpoints: {
                 features: "{% url 'api_features' %}",
                 districts: "{% url 'api_districts' %}",
@@ -326,5 +330,5 @@
             }
         };
     </script>
-    <script src="{% static 'js/map.js' %}"></script>
+    <script defer src="{% static 'js/map.js' %}"></script>
 {% endblock %}

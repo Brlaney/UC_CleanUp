@@ -326,7 +326,22 @@ def profile_view(request):
 
 
 def map_view(request):
-    return render(request, "geoapp/map.html")
+    # Inline districts into the page to eliminate a critical-path XHR (290 KB payload).
+    # Cached for 1 hour — district geometries change extremely rarely.
+    districts_json = cache.get("districts_inline_json")
+    if districts_json is None:
+        districts_raw = []
+        for d in District.objects.filter(active=True):
+            districts_raw.append({
+                "id": str(d.id),
+                "name": d.name,
+                "slug": d.slug,
+                "description": d.description,
+                "geometry": json.loads(d.geometry.geojson),
+            })
+        districts_json = json.dumps({"districts": districts_raw})
+        cache.set("districts_inline_json", districts_json, 3600)
+    return render(request, "geoapp/map.html", {"districts_json": districts_json})
 
 
 def about_view(request):
@@ -439,17 +454,22 @@ def features_api(request):
 @ratelimit(key="ip", rate="30/m", method="GET", block=True)
 @require_GET
 def districts_api(request):
-    districts = District.objects.filter(active=True)
-    results = []
-    for d in districts:
-        results.append({
-            "id": str(d.id),
-            "name": d.name,
-            "slug": d.slug,
-            "description": d.description,
-            "geometry": json.loads(d.geometry.geojson),
-        })
-    return JsonResponse({"districts": results})
+    data = cache.get("districts_api_response")
+    if data is None:
+        results = []
+        for d in District.objects.filter(active=True):
+            results.append({
+                "id": str(d.id),
+                "name": d.name,
+                "slug": d.slug,
+                "description": d.description,
+                "geometry": json.loads(d.geometry.geojson),
+            })
+        data = {"districts": results}
+        cache.set("districts_api_response", data, 3600)
+    resp = JsonResponse(data)
+    resp["Cache-Control"] = "public, max-age=3600"
+    return resp
 
 
 @require_GET

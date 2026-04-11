@@ -356,7 +356,13 @@
   }
 
   function loadDistricts() {
-    U.fetchJson(config.endpoints.districts).then(function (data) {
+    // Use inlined data when available (eliminates 290 KB XHR from critical path).
+    var inlined = config.districts;
+    var promise = inlined
+      ? Promise.resolve(inlined)
+      : U.fetchJson(config.endpoints.districts);
+
+    promise.then(function (data) {
       var districts = data.districts || [];
       if (!districts.length) return;
 

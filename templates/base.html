@@ -5,6 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token }}">
+    <meta name="description" content="{% block meta_description %}UC CleanUp — community-powered trash reporting and cleanup tracking for the Upper Cumberland region of Tennessee.{% endblock %}">
     <title>{% block title %}Upper-Cumberland CleanUp{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,7 +22,7 @@
 <header class="topbar">
     <div class="topbar-inner">
         <a class="brand" href="{% url 'map' %}">
-            <img class="brand-icon" src="{% static 'images/logo_2.svg' %}" alt="" height="36">
+            <img class="brand-icon" src="{% static 'images/logo_2.svg' %}" alt="" height="36" width="36" fetchpriority="high">
             <img class="brand-logo" src="{% static 'images/nav-banner.png' %}" alt="Upper-Cumberland CleanUp" height="36">
         </a>
         <button class="hamburger" id="hamburger-btn" type="button" aria-expanded="false" aria-controls="nav-collapse" aria-label="Toggle menu">

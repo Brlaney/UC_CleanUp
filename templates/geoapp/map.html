@@ -10,6 +10,9 @@
 {% endblock %}
 
 {% block content %}
+<div id="offline-banner" class="offline-banner hidden" role="status">
+  You're offline. Reports will be saved locally and synced when you reconnect.
+</div>
 <section class="map-shell">
     <aside class="control-panel" aria-label="Map controls" id="control-panel">
         <div class="sheet-handle" id="sheet-handle" aria-label="Toggle panel" role="button" tabindex="0">
@@ -19,6 +22,27 @@
                 <span class="sheet-handle-chevron" aria-hidden="true"></span>
             </div>
         </div>
+
+        <!-- Impact bar -->
+        <div class="impact-bar" id="impact-bar" aria-label="Community impact">
+            <div class="impact-stat">
+                <span class="impact-num" id="impact-bags">—</span>
+                <span class="impact-label">Bags Collected</span>
+            </div>
+            <div class="impact-stat">
+                <span class="impact-num" id="impact-cleaned">—</span>
+                <span class="impact-label">Sites Cleaned</span>
+            </div>
+            <div class="impact-stat">
+                <span class="impact-num" id="impact-reported">—</span>
+                <span class="impact-label">Sites Reported</span>
+            </div>
+            <div class="impact-stat">
+                <span class="impact-num" id="impact-volunteers">—</span>
+                <span class="impact-label">Active This Month</span>
+            </div>
+        </div>
+
         <div class="control-panel-main">
             <div class="panel-hero">
                 <p class="panel-hero-hint">Upper-Cumberland CleanUp</p>
@@ -42,6 +66,14 @@
                     <button class="btn btn-primary" id="place-pin-btn" type="button">Place Pin</button>
                     <button class="btn btn-secondary" id="draw-area-btn" type="button">Draw Area</button>
                 </div>
+                <div class="button-row" style="margin-top:0.6rem">
+                    <button class="btn btn-subtle btn-compact" id="create-event-btn" type="button">&#128197; Create Event</button>
+                </div>
+                {% if user.is_authenticated %}
+                <div class="button-row" style="margin-top:0.4rem">
+                    <button class="btn btn-subtle btn-compact hidden" id="enable-notifications-btn" type="button">&#128276; Enable Notifications</button>
+                </div>
+                {% endif %}
             </section>
 
             <!-- Cleanup mode controls -->
@@ -154,6 +186,12 @@
                 <option value="HEAVY">Heavy</option>
             </select>
             <label class="checkbox-label"><input type="checkbox" name="hazard_flag" value="1"> Hazard present</label>
+            {% if user.is_authenticated %}
+            <label for="trash-team">Team <small style="font-weight:400">(optional)</small></label>
+            <select name="team" id="trash-team">
+              <option value="">— No Team —</option>
+            </select>
+            {% endif %}
             <label for="trash-photos">Photos (max 5)</label>
             <input type="file" name="photos" id="trash-photos" multiple accept="image/jpeg,image/png,image/webp,image/heic">
             <div id="trash-photo-preview" class="photo-upload-preview"></div>
@@ -179,6 +217,12 @@
             <textarea name="note" id="cleaned-note" rows="3" placeholder="What you cleaned up, conditions, etc."></textarea>
             <label for="cleaned-bags">Bags collected</label>
             <input type="number" name="bags_count" id="cleaned-bags" min="0" value="0">
+            {% if user.is_authenticated %}
+            <label for="cleaned-team">Team <small style="font-weight:400">(optional)</small></label>
+            <select name="team" id="cleaned-team">
+              <option value="">— No Team —</option>
+            </select>
+            {% endif %}
             <label for="cleaned-before-photos">Before photos (max 5)</label>
             <input type="file" name="before_photos" id="cleaned-before-photos" multiple accept="image/jpeg,image/png,image/webp,image/heic">
             <div id="before-photo-preview" class="photo-upload-preview"></div>
@@ -195,24 +239,76 @@
         </form>
     </div>
 </div>
+
+<!-- Create Event modal -->
+<div class="modal hidden" id="event-modal" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
+    <div class="modal-card">
+        <h2 id="event-modal-title">Create Cleanup Event</h2>
+        <form id="event-form">
+            {% csrf_token %}
+            <input type="hidden" id="event-lat">
+            <input type="hidden" id="event-lng">
+            <label for="event-title">Title</label>
+            <input type="text" name="title" id="event-title" required maxlength="255" placeholder="e.g. District 3 Spring Cleanup">
+            <label for="event-desc">Description</label>
+            <textarea name="description" id="event-desc" rows="3" placeholder="What to bring, where to meet, etc."></textarea>
+            <label for="event-date">Date &amp; Time</label>
+            <input type="datetime-local" name="event_date" id="event-date" required>
+            <label for="event-max">Max Attendees <small style="font-weight:400">(optional)</small></label>
+            <input type="number" name="max_attendees" id="event-max" min="1" placeholder="Leave blank for unlimited">
+            <div class="button-row">
+                <button class="btn btn-primary" type="submit" id="event-submit-btn">
+                    <span class="btn-label">Create Event</span>
+                    <span class="loading-spinner hidden" aria-hidden="true"></span>
+                </button>
+                <button class="btn btn-subtle" type="button" data-close-modal="event-modal">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Photo lightbox -->
 <div class="photo-lightbox hidden" id="photo-lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer">
     <button class="photo-lightbox-close" id="photo-lightbox-close" aria-label="Close photo">&times;</button>
     <img class="photo-lightbox-img" id="photo-lightbox-img" src="" alt="">
+</div>
+
+<!-- Share modal -->
+<div class="modal hidden" id="share-modal" role="dialog" aria-modal="true" aria-labelledby="share-modal-title">
+    <div class="modal-card modal-card--narrow">
+        <h2 id="share-modal-title">Share This Cleanup</h2>
+        <p class="modal-copy" id="share-modal-desc"></p>
+        <div class="share-btn-grid">
+            <button class="btn btn-subtle" id="share-copy-btn" type="button">Copy Link</button>
+            <a class="btn btn-subtle" id="share-fb-btn" target="_blank" rel="noopener noreferrer">Facebook</a>
+            <a class="btn btn-subtle" id="share-x-btn" target="_blank" rel="noopener noreferrer">X / Twitter</a>
+        </div>
+        <div class="button-row" style="margin-top:1rem">
+            <button class="btn btn-subtle" type="button" data-close-modal="share-modal">Close</button>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     <script>
         window.APP_CONFIG = {
             isAuthenticated: {{ user.is_authenticated|yesno:"true,false" }},
             endpoints: {
                 features: "{% url 'api_features' %}",
                 districts: "{% url 'api_districts' %}",
+                impact: "{% url 'api_impact' %}",
+                heatmap: "{% url 'api_heatmap' %}",
                 trashCreate: "{% url 'api_trash_site_create' %}",
                 trashUpdateBase: "/api/trash-sites/",
+                eventsBase: "/api/events/",
+                teamsBase: "/api/teams/",
+                pushVapidKey: "{% url 'api_push_vapid_key' %}",
+                pushSubscribe: "{% url 'api_push_subscribe' %}",
+                pushUnsubscribe: "{% url 'api_push_unsubscribe' %}",
                 preferences: {% if user.is_authenticated %}"{% url 'api_preferences' %}"{% else %}null{% endif %}
             }
         };

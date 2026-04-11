@@ -10,6 +10,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <meta name="theme-color" content="#0d5e97">
     <link rel="stylesheet" href="{% static 'css/palette.css' %}">
     <link rel="stylesheet" href="{% static 'css/site.css' %}">
     {% block extra_head %}{% endblock %}
@@ -32,6 +34,9 @@
                 <a class="topnav-link{% if request.resolver_match.url_name == 'map' %} is-active{% endif %}" href="{% url 'map' %}"{% if request.resolver_match.url_name == 'map' %} aria-current="page"{% endif %}>Map</a>
                 <a class="topnav-link{% if request.resolver_match.url_name == 'cleanups' %} is-active{% endif %}" href="{% url 'cleanups' %}"{% if request.resolver_match.url_name == 'cleanups' %} aria-current="page"{% endif %}>Cleanups</a>
                 <a class="topnav-link{% if request.resolver_match.url_name == 'about' %} is-active{% endif %}" href="{% url 'about' %}"{% if request.resolver_match.url_name == 'about' %} aria-current="page"{% endif %}>About</a>
+                <a class="topnav-link{% if request.resolver_match.url_name == 'leaderboard' %} is-active{% endif %}" href="{% url 'leaderboard' %}"{% if request.resolver_match.url_name == 'leaderboard' %} aria-current="page"{% endif %}>Leaderboard</a>
+                <a class="topnav-link{% if request.resolver_match.url_name == 'events' %} is-active{% endif %}" href="{% url 'events' %}"{% if request.resolver_match.url_name == 'events' %} aria-current="page"{% endif %}>Events</a>
+                <a class="topnav-link{% if request.resolver_match.url_name in 'team,teams' %} is-active{% endif %}" href="{% url 'teams' %}">Teams</a>
                 {% if user.is_authenticated and user.is_staff or user.is_superuser %}
                     <a class="topnav-link" href="{% url 'admin:index' %}">Admin</a>
                 {% endif %}
@@ -149,5 +154,12 @@
 <script src="{% static 'js/utils.js' %}"></script>
 <script src="{% static 'js/base.js' %}"></script>
 {% block scripts %}{% endblock %}
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js').catch(function() {});
+  });
+}
+</script>
 </body>
 </html>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ site.title|default:"Cleanup Result" }} — UC CleanUp</title>
+
+    <!-- OpenGraph -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Upper-Cumberland CleanUp">
+    <meta property="og:title" content="{{ site.title|default:'Cleanup Result' }}">
+    <meta property="og:description" content="A trash site in Putnam County was cleaned up! See the before and after on the UC CleanUp map.">
+    <meta property="og:url" content="{{ share_url }}">
+    {% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ site.title|default:'Cleanup Result' }}">
+    <meta name="twitter:description" content="A trash site in Putnam County was cleaned up! See it on the UC CleanUp map.">
+    {% if og_image %}<meta name="twitter:image" content="{{ og_image }}">{% endif %}
+
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: system-ui, sans-serif;
+            background: #f0f4f8;
+            color: #1a2940;
+        }
+        .share-redirect { text-align: center; padding: 2rem; }
+        .share-redirect p { color: #555; margin: 0.5rem 0 0; }
+        a { color: #0e5ea8; }
+    </style>
+</head>
+<body>
+    <div class="share-redirect">
+        <strong>Redirecting to map&hellip;</strong>
+        <p>If not redirected, <a href="{{ map_url }}">click here</a>.</p>
+    </div>
+    <script>
+        setTimeout(function () {
+            window.location.replace("{{ map_url|escapejs }}");
+        }, 800);
+    </script>
+</body>
+</html>

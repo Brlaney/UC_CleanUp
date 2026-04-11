@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Teams — UC CleanUp{% endblock %}
+
+{% block extra_head %}
+<style>
+  .teams-wrap { max-width: 760px; margin: 0 auto; padding: 2rem 1rem; }
+  .teams-grid { display: grid; gap: 1rem; }
+  .team-card { padding: 1.2rem 1.25rem; background: rgba(255,255,255,0.94); border: 1px solid var(--color-border-soft); border-left: 4px solid var(--color-btn-primary-bg); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
+  .team-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .team-card h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+  .team-card-meta { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--color-text-muted); margin: 0.35rem 0; }
+  .team-org-badge { display: inline-block; padding: 0.18rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; background: rgba(14,94,168,0.1); color: var(--color-btn-primary-bg); }
+  .teams-empty { padding: 2rem; text-align: center; color: var(--color-text-secondary); }
+  .teams-loading { padding: 2rem; text-align: center; color: var(--color-text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="teams-wrap">
+  <h1>Community Teams</h1>
+  <p>Schools, civic groups, scout troops, and churches working to keep the Upper Cumberland clean.</p>
+
+  <div id="teams-content">
+    <div class="teams-loading">Loading&hellip;</div>
+  </div>
+
+  <p style="margin-top:2rem">
+    <a class="btn btn-subtle btn-compact" href="{% url 'map' %}">&larr; Back to Map</a>
+    {% if user.is_authenticated %}
+      <button class="btn btn-primary btn-compact" id="create-team-btn" type="button">+ Create Team</button>
+    {% endif %}
+  </p>
+
+  {% if user.is_authenticated %}
+  <div class="modal hidden" id="create-team-modal" role="dialog" aria-modal="true" aria-labelledby="ct-title">
+    <div class="modal-card">
+      <h2 id="ct-title">Create a Team</h2>
+      <form id="create-team-form">
+        {% csrf_token %}
+        <label for="ct-name">Team Name</label>
+        <input type="text" id="ct-name" required maxlength="255" placeholder="e.g. Cookeville High School Green Club">
+        <label for="ct-org-type">Type</label>
+        <select id="ct-org-type">
+          <option value="SCHOOL">School</option>
+          <option value="CIVIC">Civic Group</option>
+          <option value="CHURCH">Church</option>
+          <option value="SCOUT">Scout Troop</option>
+          <option value="OTHER" selected>Other</option>
+        </select>
+        <label for="ct-desc">Description <small style="font-weight:400">(optional)</small></label>
+        <textarea id="ct-desc" rows="3" placeholder="What your group is about"></textarea>
+        <div id="ct-error" style="color:var(--color-status-invalid-text);font-size:0.88rem;margin:0.25rem 0" aria-live="polite"></div>
+        <div class="button-row">
+          <button class="btn btn-primary" type="submit">Create Team</button>
+          <button class="btn btn-subtle" type="button" data-close-modal="create-team-modal">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var content = document.getElementById("teams-content");
+
+  function escHtml(s) {
+    return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function getCsrf() {
+    var m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : "";
+  }
+
+  function loadTeams() {
+    content.innerHTML = '<div class="teams-loading">Loading&hellip;</div>';
+    fetch("/api/teams/").then(function(r) { return r.json(); }).then(function(data) {
+      var teams = data.results || [];
+      if (!teams.length) {
+        content.innerHTML = '<div class="teams-empty">No teams yet. Be the first to create one!</div>';
+        return;
+      }
+      var html = '<div class="teams-grid">';
+      teams.forEach(function(t) {
+        html += '<div class="team-card">';
+        html += '<div class="team-card-top">';
+        html += '<div>';
+        html += '<h3><a href="/teams/' + escHtml(t.slug) + '/">' + escHtml(t.name) + '</a></h3>';
+        html += '<div class="team-card-meta">';
+        html += '<span>' + t.member_count + ' member' + (t.member_count !== 1 ? 's' : '') + '</span>';
+        html += '<span>' + t.cleanup_count + ' cleanup' + (t.cleanup_count !== 1 ? 's' : '') + '</span>';
+        html += '<span>' + t.bags_total + ' bags</span>';
+        if (t.leader) html += '<span>Led by ' + escHtml(t.leader) + '</span>';
+        html += '</div>';
+        if (t.description) html += '<p style="margin:0.4rem 0 0;font-size:0.9rem;color:var(--color-text-secondary)">' + escHtml(t.description) + '</p>';
+        html += '</div>';
+        html += '<span class="team-org-badge">' + escHtml(t.org_type.replace(/_/g,' ')) + '</span>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+      content.innerHTML = html;
+    }).catch(function() {
+      content.innerHTML = '<div class="teams-empty">Unable to load teams.</div>';
+    });
+  }
+
+  loadTeams();
+
+  var createBtn = document.getElementById("create-team-btn");
+  if (createBtn) {
+    createBtn.addEventListener("click", function() {
+      if (window.AppUtils) window.AppUtils.openModal("create-team-modal");
+    });
+  }
+
+  var form = document.getElementById("create-team-form");
+  if (form) {
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+      var errEl = document.getElementById("ct-error");
+      errEl.textContent = "";
+      var payload = {
+        name: document.getElementById("ct-name").value.trim(),
+        org_type: document.getElementById("ct-org-type").value,
+        description: document.getElementById("ct-desc").value.trim(),
+      };
+      fetch("/api/teams/", {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": getCsrf()},
+        body: JSON.stringify(payload),
+      }).then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+      .then(function(res) {
+        if (!res.ok) { errEl.textContent = res.data.error || "Failed to create team."; return; }
+        if (window.AppUtils) window.AppUtils.closeModal("create-team-modal");
+        window.location.href = "/teams/" + res.data.slug + "/";
+      }).catch(function() { errEl.textContent = "Something went wrong."; });
+    });
+  }
+}());
+</script>
+{% endblock %}

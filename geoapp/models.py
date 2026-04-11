@@ -428,7 +428,8 @@ class UserMapPreference(models.Model):
         on_delete=models.CASCADE,
         related_name="map_preference",
     )
-    default_county = models.CharField(max_length=100, blank=True)
+    default_county = models.CharField(max_length=100, blank=True)  # legacy — kept for backwards compat
+    default_counties = models.JSONField(default=list)
     visible_district_slugs = models.JSONField(default=list)
     updated_at = models.DateTimeField(auto_now=True)
 

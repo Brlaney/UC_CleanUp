@@ -348,10 +348,19 @@
       }
     }
 
-    // No specific districts saved (all visible) — fall back to county centroid
-    var county = prefs.default_county;
-    if (county && UC_COUNTY_CENTROIDS[county]) {
-      map.setView(UC_COUNTY_CENTROIDS[county], 12);
+    // No specific districts saved (all visible) — fall back to county centroid(s)
+    var counties = prefs.default_counties && prefs.default_counties.length
+      ? prefs.default_counties
+      : (prefs.default_county ? [prefs.default_county] : []);  // legacy single-value fallback
+    if (counties.length === 1 && UC_COUNTY_CENTROIDS[counties[0]]) {
+      map.setView(UC_COUNTY_CENTROIDS[counties[0]], 12);
+    } else if (counties.length > 1) {
+      var points = counties.filter(function (c) { return UC_COUNTY_CENTROIDS[c]; })
+                           .map(function (c) { return UC_COUNTY_CENTROIDS[c]; });
+      if (points.length) {
+        var latBounds = L.latLngBounds(points);
+        map.fitBounds(latBounds, { padding: [60, 60] });
+      }
     }
   }
 

@@ -650,7 +650,7 @@ button:disabled,
 .site-footer-copy {
   margin: 0;
   font-size: 0.8rem;
-  color: var(--color-topbar-text);
+  color: #ffffff;
   opacity: 0.75;
 }
 

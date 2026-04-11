@@ -812,12 +812,15 @@ def preferences_api(request):
     profile, _ = Profile.objects.get_or_create(user=request.user)
     if request.method == "GET":
         return JsonResponse({
-            "default_county": pref.default_county,
+            "default_county": pref.default_county,   # legacy
+            "default_counties": pref.default_counties,
             "visible_district_slugs": pref.visible_district_slugs,
             "public_profile": profile.public_profile,
         })
     data = _load_payload(request)
-    pref.default_county = str(data.get("default_county", "")).strip()
+    counties = data.get("default_counties")
+    if isinstance(counties, list):
+        pref.default_counties = [str(c) for c in counties]
     slugs = data.get("visible_district_slugs")
     if isinstance(slugs, list):
         pref.visible_district_slugs = [str(s) for s in slugs]
@@ -826,7 +829,7 @@ def preferences_api(request):
         profile.public_profile = _parse_bool(data.get("public_profile"))
         profile.save(update_fields=["public_profile"])
     return JsonResponse({
-        "default_county": pref.default_county,
+        "default_counties": pref.default_counties,
         "visible_district_slugs": pref.visible_district_slugs,
         "public_profile": profile.public_profile,
     })

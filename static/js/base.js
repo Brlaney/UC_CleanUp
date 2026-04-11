@@ -47,11 +47,38 @@
     var settingsBtn = document.getElementById("settings-open-btn");
     var settingsForm = document.getElementById("settings-form");
     var settingsStatus = document.getElementById("settings-status");
-    var settingsCounty = document.getElementById("settings-county");
+    var settingsCountyGrid = document.getElementById("settings-county-grid");
+    var settingsCountyAll = document.getElementById("settings-county-all");
     var settingsDistrictList = document.getElementById("settings-district-list");
     var saveLabelEl = settingsForm ? settingsForm.querySelector(".btn-label") : null;
     var saveSpinner = settingsForm ? settingsForm.querySelector(".loading-spinner") : null;
     if (!settingsBtn) return;
+
+    // County Select All / Deselect All
+    if (settingsCountyAll && settingsCountyGrid) {
+      function updateCountySelectAll() {
+        var boxes = settingsCountyGrid.querySelectorAll("input[name='default_counties']");
+        var checkedCount = Array.from(boxes).filter(function (b) { return b.checked; }).length;
+        var all = checkedCount === boxes.length;
+        var none = checkedCount === 0;
+        settingsCountyAll.checked = all;
+        settingsCountyAll.indeterminate = !all && !none;
+        var span = settingsCountyAll.closest("label").querySelector("span");
+        if (span) span.textContent = all ? "Deselect All" : "Select All";
+      }
+      settingsCountyAll.addEventListener("change", function (e) {
+        var checked = e.target.checked;
+        e.target.indeterminate = false;
+        settingsCountyGrid.querySelectorAll("input[name='default_counties']").forEach(function (chk) {
+          chk.checked = checked;
+        });
+        var span = settingsCountyAll.closest("label").querySelector("span");
+        if (span) span.textContent = checked ? "Deselect All" : "Select All";
+      });
+      settingsCountyGrid.querySelectorAll("input[name='default_counties']").forEach(function (chk) {
+        chk.addEventListener("change", updateCountySelectAll);
+      });
+    }
 
     var prefEndpoint = (config.endpoints || {}).preferences;
     var districtEndpoint = (config.endpoints || {}).districts;
@@ -144,9 +171,23 @@
         // Then overlay saved prefs if authenticated
         if (config.isAuthenticated && prefEndpoint) {
           U.fetchJson(prefEndpoint).then(function (prefs) {
-            if (settingsCounty && prefs.default_county) {
-              settingsCounty.value = prefs.default_county;
+            // Restore saved default counties
+            var savedCounties = prefs.default_counties || [];
+            if (settingsCountyGrid && savedCounties.length) {
+              settingsCountyGrid.querySelectorAll("input[name='default_counties']").forEach(function (chk) {
+                chk.checked = savedCounties.indexOf(chk.value) !== -1;
+              });
+              if (settingsCountyAll) {
+                var allBoxes = settingsCountyGrid.querySelectorAll("input[name='default_counties']");
+                var checkedCount = Array.from(allBoxes).filter(function (b) { return b.checked; }).length;
+                var allChecked = checkedCount === allBoxes.length;
+                settingsCountyAll.checked = allChecked;
+                settingsCountyAll.indeterminate = !allChecked && checkedCount > 0;
+                var span = settingsCountyAll.closest("label").querySelector("span");
+                if (span) span.textContent = allChecked ? "Deselect All" : "Select All";
+              }
             }
+            // Restore saved visible districts
             var slugs = prefs.visible_district_slugs || [];
             if (slugs.length) {
               renderDistrictCheckboxes(districts, slugs);
@@ -168,7 +209,6 @@
       if (hamburgerEl) hamburgerEl.setAttribute("aria-expanded", "false");
       if (navCollapseEl) navCollapseEl.classList.remove("is-open");
       // Reset and open modal
-      if (settingsCounty) settingsCounty.value = "";
       if (settingsDistrictList) settingsDistrictList.innerHTML = '<span class="settings-loading">Loading\u2026</span>';
       setSettingsStatus("");
       U.openModal("settings-modal");
@@ -178,13 +218,21 @@
     if (settingsForm && prefEndpoint) {
       settingsForm.addEventListener("submit", function (e) {
         e.preventDefault();
-        var county = settingsCounty ? settingsCounty.value : "";
-        var boxes = settingsDistrictList
+
+        // Collect checked county values
+        var countyBoxes = settingsCountyGrid
+          ? Array.from(settingsCountyGrid.querySelectorAll("input[name='default_counties']"))
+          : [];
+        var checkedCounties = countyBoxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; });
+        // Empty array = no preference saved (use app default)
+        var countiesToSave = checkedCounties.length === countyBoxes.length ? [] : checkedCounties;
+
+        // Collect visible district slugs
+        var distBoxes = settingsDistrictList
           ? Array.from(settingsDistrictList.querySelectorAll("input[name='district_slugs']"))
           : [];
-        var checked = boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; });
-        // Empty array = all visible (default)
-        var slugsToSave = checked.length === boxes.length ? [] : checked;
+        var checkedSlugs = distBoxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; });
+        var slugsToSave = checkedSlugs.length === distBoxes.length ? [] : checkedSlugs;
 
         if (saveLabelEl) saveLabelEl.textContent = "Saving\u2026";
         if (saveSpinner) saveSpinner.classList.remove("hidden");
@@ -192,7 +240,7 @@
         U.fetchJson(prefEndpoint, {
           method: "POST",
           headers: { "X-CSRFToken": U.getCsrfToken(), "Content-Type": "application/json" },
-          body: JSON.stringify({ default_county: county, visible_district_slugs: slugsToSave }),
+          body: JSON.stringify({ default_counties: countiesToSave, visible_district_slugs: slugsToSave }),
         }).then(function () {
           setSettingsStatus("Preferences saved.", "success");
           setTimeout(function () { U.closeModal("settings-modal"); }, 700);

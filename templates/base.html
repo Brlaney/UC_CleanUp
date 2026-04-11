@@ -117,24 +117,32 @@
         <p class="modal-copy">Choose which layers appear on the map.</p>
         <form id="settings-form">
             {% csrf_token %}
-            <label for="settings-county">Default County</label>
-            <select id="settings-county" name="default_county">
-                <option value="">-- All Counties --</option>
-                <option value="Cannon">Cannon</option>
-                <option value="Clay">Clay</option>
-                <option value="Cumberland">Cumberland</option>
-                <option value="DeKalb">DeKalb</option>
-                <option value="Fentress">Fentress</option>
-                <option value="Jackson">Jackson</option>
-                <option value="Macon">Macon</option>
-                <option value="Overton">Overton</option>
-                <option value="Pickett">Pickett</option>
-                <option value="Putnam">Putnam</option>
-                <option value="Smith">Smith</option>
-                <option value="Van Buren">Van Buren</option>
-                <option value="Warren">Warren</option>
-                <option value="White">White</option>
-            </select>
+            <fieldset class="settings-fieldset">
+                <legend>Default Counties</legend>
+                <div id="settings-county-list" class="settings-district-list">
+                    <label class="layer-toggle layer-toggle--all">
+                        <input type="checkbox" id="settings-county-all">
+                        <span>Select All</span>
+                    </label>
+                    <div class="layer-toggle-divider"></div>
+                    <div class="settings-district-grid" id="settings-county-grid">
+                        <label class="layer-toggle"><input type="checkbox" name="default_counties" value="Cannon"><span>Cannon</span></label>
+                        <label class="layer-toggle"><input type="checkbox" name="default_counties" value="Clay"><span>Clay</span></label>
+                        <label class="layer-toggle"><input type="checkbox" name="default_counties" value="Cumberland"><span>Cumberland</span></label>
+                        <label class="layer-toggle"><input type="checkbox" name="default_counties" value="DeKalb"><span>DeKalb</span></label>
+                        <label class="layer-toggle"><input type="checkbox" name="default_counties" value="Fentress"><span>Fentress</span></label>
+                        <label class="layer-toggle"><input type="checkbox" name="default_counties" value="Jackson"><span>Jackson</span></label>
+                        <label class="layer-toggle"><input type="checkbox" name="default_counties" value="Macon"><span>Macon</span></label>
+                        <label class="layer-toggle"><input type="checkbox" name="default_counties" value="Overton"><span>Overton</span></label>
+                        <label class="layer-toggle"><input type="checkbox" name="default_counties" value="Pickett"><span>Pickett</span></label>
+                        <label class="layer-toggle"><input type="checkbox" name="default_counties" value="Putnam"><span>Putnam</span></label>
+                        <label class="layer-toggle"><input type="checkbox" name="default_counties" value="Smith"><span>Smith</span></label>
+                        <label class="layer-toggle"><input type="checkbox" name="default_counties" value="Van Buren"><span>Van Buren</span></label>
+                        <label class="layer-toggle"><input type="checkbox" name="default_counties" value="Warren"><span>Warren</span></label>
+                        <label class="layer-toggle"><input type="checkbox" name="default_counties" value="White"><span>White</span></label>
+                    </div>
+                </div>
+            </fieldset>
             <fieldset class="settings-fieldset">
                 <legend>Visible Districts</legend>
                 <div id="settings-district-list" class="settings-district-list">

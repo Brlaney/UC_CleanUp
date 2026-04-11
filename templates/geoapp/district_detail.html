@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}{{ district.name }} — UC CleanUp{% endblock %}
+
+{% block extra_head %}
+<style>
+  .district-detail-wrap { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
+  .district-detail-wrap h1 { margin-bottom: 0.15rem; }
+  .district-detail-subtitle { color: var(--color-text-muted); margin-bottom: 1.75rem; }
+
+  .stats-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.75rem; }
+  .stat-pill { background: rgba(255,255,255,0.94); border: 1px solid var(--color-border-soft); border-radius: var(--radius-md); padding: 0.9rem 1.1rem; box-shadow: var(--shadow-sm); min-width: 110px; }
+  .stat-pill-num { font-size: 1.7rem; font-weight: 800; color: var(--color-btn-primary-bg); line-height: 1.1; }
+  .stat-pill-label { font-size: 0.78rem; color: var(--color-text-muted); margin-top: 0.2rem; }
+
+  .section-card { background: rgba(255,255,255,0.94); border: 1px solid var(--color-border-soft); border-radius: var(--radius-md); padding: 1.1rem 1.25rem; box-shadow: var(--shadow-sm); margin-bottom: 1.25rem; }
+  .section-card h2 { font-size: 1rem; margin: 0 0 0.75rem; }
+
+  .vol-list, .cleanup-list { list-style: none; margin: 0; padding: 0; }
+  .vol-item, .cleanup-item { display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid var(--color-border-soft); font-size: 0.9rem; }
+  .vol-item:last-child, .cleanup-item:last-child { border-bottom: none; }
+  .vol-rank { font-weight: 800; color: var(--color-btn-primary-bg); min-width: 1.5rem; }
+  .cleanup-date { color: var(--color-text-muted); font-size: 0.82rem; }
+
+  .progress-bar-large { background: var(--color-border-soft); border-radius: 999px; height: 10px; margin: 0.6rem 0 0.3rem; }
+  .progress-fill-large { background: var(--color-btn-primary-bg); border-radius: 999px; height: 10px; transition: width 0.6s; }
+
+  .action-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 1.5rem; }
+  .districts-loading { color: var(--color-text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="district-detail-wrap">
+  <h1 id="district-name">{{ district.name }}</h1>
+  {% if district.description %}<p class="district-detail-subtitle">{{ district.description }}</p>{% endif %}
+
+  <div id="stats-content">
+    <p class="districts-loading">Loading stats&hellip;</p>
+  </div>
+
+  <div class="action-row">
+    <a class="btn btn-primary btn-compact" href="/?district={{ district.slug }}">View on Map</a>
+    <a class="btn btn-subtle btn-compact" href="{% url 'districts' %}">&larr; All Districts</a>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var container = document.getElementById("stats-content");
+  var slug = "{{ district.slug }}";
+
+  function escHtml(s) {
+    return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function formatDate(iso) {
+    if (!iso) return "—";
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  fetch("/api/districts/" + slug + "/stats/")
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var pct = d.site_count > 0 ? Math.round(d.cleaned_count / d.site_count * 100) : 0;
+      var html = "";
+
+      // Stats row
+      html += '<div class="stats-row">';
+      html += '<div class="stat-pill"><div class="stat-pill-num">' + d.site_count + '</div><div class="stat-pill-label">Total Sites</div></div>';
+      html += '<div class="stat-pill"><div class="stat-pill-num">' + d.cleaned_count + '</div><div class="stat-pill-label">Cleaned</div></div>';
+      html += '<div class="stat-pill"><div class="stat-pill-num">' + d.pending_count + '</div><div class="stat-pill-label">Pending</div></div>';
+      html += '<div class="stat-pill"><div class="stat-pill-num">' + d.bags_total + '</div><div class="stat-pill-label">Bags Collected</div></div>';
+      html += '<div class="stat-pill"><div class="stat-pill-num">' + d.chronic_count + '</div><div class="stat-pill-label">Chronic Sites</div></div>';
+      html += '</div>';
+
+      // Progress
+      html += '<div class="progress-bar-large"><div class="progress-fill-large" style="width:' + pct + '%"></div></div>';
+      html += '<p style="color:var(--color-text-muted);font-size:0.9rem;margin-top:0">' + pct + '% of sites cleaned</p>';
+
+      // Top volunteers
+      if (d.top_volunteers && d.top_volunteers.length) {
+        html += '<div class="section-card"><h2>Top Volunteers</h2><ul class="vol-list">';
+        d.top_volunteers.forEach(function (v, i) {
+          html += '<li class="vol-item"><span><span class="vol-rank">#' + (i + 1) + '</span> ' + escHtml(v.username) + '</span><span>' + v.count + ' cleanups</span></li>';
+        });
+        html += '</ul></div>';
+      }
+
+      // Recent cleanups
+      if (d.recent_cleanups && d.recent_cleanups.length) {
+        html += '<div class="section-card"><h2>Recent Cleanups</h2><ul class="cleanup-list">';
+        d.recent_cleanups.forEach(function (c) {
+          html += '<li class="cleanup-item">' +
+            '<a href="/?focus_id=' + escHtml(c.id) + '">' + escHtml(c.title) + '</a>' +
+            '<span class="cleanup-date">' + formatDate(c.cleaned_at) + '</span>' +
+            '</li>';
+        });
+        html += '</ul></div>';
+      }
+
+      container.innerHTML = html;
+    })
+    .catch(function () {
+      container.innerHTML = '<p style="color:var(--color-text-muted)">Unable to load district stats.</p>';
+    });
+}());
+</script>
+{% endblock %}

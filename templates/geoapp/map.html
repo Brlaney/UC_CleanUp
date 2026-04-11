@@ -1,21 +1,63 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Map - Upper-Cumberland CleanUp{% endblock %}
+{% block title %}UC CleanUp{% endblock %}
 
 {% block extra_head %}
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <link rel="preload" href="{% static 'images/logo_2.svg' %}" as="image">
+    <link rel="stylesheet" href="{% static 'vendor/leaflet.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/leaflet-draw.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/MarkerCluster.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/MarkerCluster.Default.css' %}">
     <link rel="stylesheet" href="{% static 'css/map.css' %}">
 {% endblock %}
 
 {% block content %}
+<div id="offline-banner" class="offline-banner hidden" role="status">
+  You're offline. Reports will be saved locally and synced when you reconnect.
+</div>
 <section class="map-shell">
-    <aside class="control-panel" aria-label="Map controls">
+    <aside class="control-panel" aria-label="Map controls" id="control-panel">
+        <div class="sheet-handle" id="sheet-handle" aria-label="Toggle panel" role="button" tabindex="0">
+            <div class="sheet-handle-bar"></div>
+            <div class="sheet-handle-row">
+                <span class="sheet-handle-label">Map Controls</span>
+                <span class="sheet-handle-chevron" aria-hidden="true"></span>
+            </div>
+        </div>
+
+        <!-- Address search -->
+        <div class="map-search" id="map-search" role="search" aria-label="Search address">
+            <input type="search" id="search-input" placeholder="Search address or place&hellip;" autocomplete="off"
+                   aria-label="Search address or place" aria-autocomplete="list" aria-controls="search-results"
+                   aria-expanded="false">
+            <ul class="search-results hidden" id="search-results" role="listbox" aria-label="Search suggestions"></ul>
+        </div>
+
+        <!-- Impact bar -->
+        <div class="impact-bar" id="impact-bar" aria-label="Community impact">
+            <div class="impact-stat">
+                <span class="impact-num" id="impact-bags">—</span>
+                <span class="impact-label">Bags Collected</span>
+            </div>
+            <div class="impact-stat">
+                <span class="impact-num" id="impact-cleaned">—</span>
+                <span class="impact-label">Sites Cleaned</span>
+            </div>
+            <div class="impact-stat">
+                <span class="impact-num" id="impact-reported">—</span>
+                <span class="impact-label">Sites Reported</span>
+            </div>
+            <div class="impact-stat">
+                <span class="impact-num" id="impact-volunteers">—</span>
+                <span class="impact-label">Active This Month</span>
+            </div>
+        </div>
+
         <div class="control-panel-main">
             <div class="panel-hero">
-                <h1>Upper-Cumberland CleanUp</h1>
-                <p>Report trash and help organize cleanup efforts in your community.</p>
+                <p class="panel-hero-hint">Upper-Cumberland CleanUp</p>
+                <a class="panel-link-text" href="{% url 'about' %}">Learn how it works &rarr;</a>
             </div>
 
             <!-- Mode switcher -->
@@ -35,6 +77,14 @@
                     <button class="btn btn-primary" id="place-pin-btn" type="button">Place Pin</button>
                     <button class="btn btn-secondary" id="draw-area-btn" type="button">Draw Area</button>
                 </div>
+                <div class="button-row" style="margin-top:0.6rem">
+                    <button class="btn btn-subtle btn-compact" id="create-event-btn" type="button">&#128197; Create Event</button>
+                </div>
+                {% if user.is_authenticated %}
+                <div class="button-row" style="margin-top:0.4rem">
+                    <button class="btn btn-subtle btn-compact hidden" id="enable-notifications-btn" type="button">&#128276; Enable Notifications</button>
+                </div>
+                {% endif %}
             </section>
 
             <!-- Cleanup mode controls -->
@@ -58,6 +108,14 @@
                 <button class="btn btn-subtle" id="apply-filters-btn" type="button">Apply Filters</button>
             </section>
 
+            <!-- Layers panel -->
+            <section class="panel-section panel-section--layers">
+                <div class="section-header">
+                    <h2>Layers</h2>
+                </div>
+                <div id="layer-toggles" class="layer-toggle-list"></div>
+            </section>
+
             <!-- Details panel -->
             <section class="panel-section panel-section--details">
                 <div class="section-header">
@@ -75,6 +133,37 @@
     </aside>
     <div id="map" role="application" aria-label="Interactive cleanup map"></div>
 </section>
+
+<!-- Mobile FAB stack -->
+<div class="mobile-fab-stack" id="mobile-fab-stack" aria-label="Map actions">
+    <button class="fab fab--mode" id="fab-mode" type="button" aria-label="Select mode" aria-haspopup="true"
+        style="background-image: url('{% static 'images/icons/pin.svg' %}')"></button>
+</div>
+
+<!-- Mobile mode picker -->
+<div class="mobile-mode-picker hidden" id="mobile-mode-picker" role="menu">
+    <button class="mode-pick-btn is-active" data-pick-mode="pin" type="button" role="menuitem">
+        <img src="{% static 'images/icons/pin.svg' %}" alt="" width="22" height="22">
+        <span>Drop a Pin</span>
+    </button>
+    <button class="mode-pick-btn" data-pick-mode="polygon" type="button" role="menuitem">
+        <img src="{% static 'images/icons/polygon.svg' %}" alt="" width="22" height="22">
+        <span>Draw Area</span>
+    </button>
+    <button class="mode-pick-btn" data-pick-mode="cleanup" type="button" role="menuitem">
+        <img src="{% static 'images/icons/leaf.svg' %}" alt="" width="22" height="22">
+        <span>Cleanup Mode</span>
+    </button>
+</div>
+
+<!-- Mobile detail card (slides up from bottom on marker tap) -->
+<div class="mobile-detail-card hidden" id="mobile-detail-card">
+    <div class="mobile-card-header">
+        <span class="mobile-card-title">Site Details</span>
+        <button class="mobile-card-close" id="mobile-detail-close" type="button" aria-label="Close details">&times;</button>
+    </div>
+    <div class="mobile-card-body" id="mobile-detail-body" aria-live="polite"></div>
+</div>
 
 <!-- Auth gate overlay -->
 <div class="auth-gate hidden" id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-gate-title">
@@ -108,6 +197,12 @@
                 <option value="HEAVY">Heavy</option>
             </select>
             <label class="checkbox-label"><input type="checkbox" name="hazard_flag" value="1"> Hazard present</label>
+            {% if user.is_authenticated %}
+            <label for="trash-team">Team <small style="font-weight:400">(optional)</small></label>
+            <select name="team" id="trash-team">
+              <option value="">— No Team —</option>
+            </select>
+            {% endif %}
             <label for="trash-photos">Photos (max 5)</label>
             <input type="file" name="photos" id="trash-photos" multiple accept="image/jpeg,image/png,image/webp,image/heic">
             <div id="trash-photo-preview" class="photo-upload-preview"></div>
@@ -133,6 +228,12 @@
             <textarea name="note" id="cleaned-note" rows="3" placeholder="What you cleaned up, conditions, etc."></textarea>
             <label for="cleaned-bags">Bags collected</label>
             <input type="number" name="bags_count" id="cleaned-bags" min="0" value="0">
+            {% if user.is_authenticated %}
+            <label for="cleaned-team">Team <small style="font-weight:400">(optional)</small></label>
+            <select name="team" id="cleaned-team">
+              <option value="">— No Team —</option>
+            </select>
+            {% endif %}
             <label for="cleaned-before-photos">Before photos (max 5)</label>
             <input type="file" name="before_photos" id="cleaned-before-photos" multiple accept="image/jpeg,image/png,image/webp,image/heic">
             <div id="before-photo-preview" class="photo-upload-preview"></div>
@@ -149,21 +250,85 @@
         </form>
     </div>
 </div>
+
+<!-- Create Event modal -->
+<div class="modal hidden" id="event-modal" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
+    <div class="modal-card">
+        <h2 id="event-modal-title">Create Cleanup Event</h2>
+        <form id="event-form">
+            {% csrf_token %}
+            <input type="hidden" id="event-lat">
+            <input type="hidden" id="event-lng">
+            <label for="event-title">Title</label>
+            <input type="text" name="title" id="event-title" required maxlength="255" placeholder="e.g. District 3 Spring Cleanup">
+            <label for="event-desc">Description</label>
+            <textarea name="description" id="event-desc" rows="3" placeholder="What to bring, where to meet, etc."></textarea>
+            <label for="event-date">Date &amp; Time</label>
+            <input type="datetime-local" name="event_date" id="event-date" required>
+            <label for="event-max">Max Attendees <small style="font-weight:400">(optional)</small></label>
+            <input type="number" name="max_attendees" id="event-max" min="1" placeholder="Leave blank for unlimited">
+            <div class="button-row">
+                <button class="btn btn-primary" type="submit" id="event-submit-btn">
+                    <span class="btn-label">Create Event</span>
+                    <span class="loading-spinner hidden" aria-hidden="true"></span>
+                </button>
+                <button class="btn btn-subtle" type="button" data-close-modal="event-modal">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Photo lightbox -->
+<div class="photo-lightbox hidden" id="photo-lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer">
+    <button class="photo-lightbox-close" id="photo-lightbox-close" aria-label="Close photo">&times;</button>
+    <img class="photo-lightbox-img" id="photo-lightbox-img" src="" alt="">
+</div>
+
+<!-- Share modal -->
+<div class="modal hidden" id="share-modal" role="dialog" aria-modal="true" aria-labelledby="share-modal-title">
+    <div class="modal-card modal-card--narrow">
+        <h2 id="share-modal-title">Share This Cleanup</h2>
+        <p class="modal-copy" id="share-modal-desc"></p>
+        <div class="share-btn-grid">
+            <button class="btn btn-subtle" id="share-copy-btn" type="button">Copy Link</button>
+            <a class="btn btn-subtle" id="share-fb-btn" target="_blank" rel="noopener noreferrer">Facebook</a>
+            <a class="btn btn-subtle" id="share-x-btn" target="_blank" rel="noopener noreferrer">X / Twitter</a>
+        </div>
+        <div class="button-row" style="margin-top:1rem">
+            <button class="btn btn-subtle" type="button" data-close-modal="share-modal">Close</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <script defer src="{% static 'vendor/leaflet.js' %}"></script>
+    <script defer src="{% static 'vendor/leaflet-draw.js' %}"></script>
+    <script defer src="{% static 'vendor/leaflet-heat.js' %}"></script>
+    <script defer src="{% static 'vendor/leaflet.markercluster.js' %}"></script>
     <script>
         window.APP_CONFIG = {
             isAuthenticated: {{ user.is_authenticated|yesno:"true,false" }},
+            // Districts inlined to avoid a 290 KB XHR on page load.
+            // map.js checks window.DISTRICTS_DATA before fetching /api/districts/.
+            districts: {{ districts_json|safe }},
             endpoints: {
                 features: "{% url 'api_features' %}",
                 districts: "{% url 'api_districts' %}",
+                impact: "{% url 'api_impact' %}",
+                heatmap: "{% url 'api_heatmap' %}",
                 trashCreate: "{% url 'api_trash_site_create' %}",
-                trashUpdateBase: "/api/trash-sites/"
+                trashUpdateBase: "/api/trash-sites/",
+                eventsBase: "/api/events/",
+                teamsBase: "/api/teams/",
+                challengesBase: "/api/challenges/",
+                badgesBase: "/api/badges/",
+                pushVapidKey: "{% url 'api_push_vapid_key' %}",
+                pushSubscribe: "{% url 'api_push_subscribe' %}",
+                pushUnsubscribe: "{% url 'api_push_unsubscribe' %}",
+                preferences: {% if user.is_authenticated %}"{% url 'api_preferences' %}"{% else %}null{% endif %}
             }
         };
     </script>
-    <script src="{% static 'js/map.js' %}"></script>
+    <script defer src="{% static 'js/map.js' %}"></script>
 {% endblock %}

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Event Flyer — {{ event.title }}</title>
+<style>
+  @media print {
+    .no-print { display: none !important; }
+    body { margin: 0; }
+    .flyer { border: none; }
+  }
+  body { font-family: Georgia, 'Times New Roman', serif; color: #1a2940; max-width: 680px; margin: 2rem auto; padding: 1rem 1.5rem; background: #fff; }
+  .no-print { text-align: center; margin-bottom: 1.5rem; }
+  .no-print button { padding: 0.5rem 1.5rem; background: #0d5e97; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; margin-right: 0.5rem; }
+  .no-print a { color: #0d5e97; font-size: 0.9rem; }
+  .flyer { border: 5px double #0d5e97; padding: 2rem; text-align: center; }
+  .flyer-logo { font-size: 2rem; margin-bottom: 0.25rem; }
+  .flyer-kicker { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.2em; color: #718096; }
+  .flyer-title { font-size: 1.8rem; font-weight: 700; color: #0d5e97; margin: 0.5rem 0; line-height: 1.2; }
+  .flyer-meta { font-size: 1rem; color: #4a5568; margin: 0.75rem 0; line-height: 1.8; }
+  .flyer-desc { font-size: 0.9rem; color: #4a5568; max-width: 480px; margin: 0.75rem auto; line-height: 1.6; }
+  .flyer-map { margin: 1rem auto; max-width: 400px; }
+  .flyer-map img { width: 100%; border-radius: 6px; border: 1px solid #e2e8f0; }
+  .flyer-qr { margin: 1.25rem auto; }
+  .flyer-qr img { width: 120px; height: 120px; }
+  .flyer-scan-label { font-size: 0.8rem; color: #718096; margin-top: 0.35rem; }
+  .flyer-footer { margin-top: 1.5rem; font-size: 0.78rem; color: #a0aec0; border-top: 1px solid #e2e8f0; padding-top: 0.75rem; }
+</style>
+</head>
+<body>
+<div class="no-print">
+  <button onclick="window.print()">Print Flyer</button>
+  <a href="/events/">&larr; Back to Events</a>
+</div>
+<div class="flyer">
+  <div class="flyer-logo">&#127807;</div>
+  <p class="flyer-kicker">Community Cleanup Event</p>
+  <h1 class="flyer-title">{{ event.title }}</h1>
+  <div class="flyer-meta">
+    <strong>Date:</strong> {{ event.event_date|date:"l, F j, Y" }}<br>
+    <strong>Time:</strong> {{ event.event_date|date:"g:i A" }}<br>
+    {% if event.organizer %}<strong>Organizer:</strong> {{ event.organizer.username }}<br>{% endif %}
+    {% if event.district %}<strong>District:</strong> {{ event.district.name }}<br>{% endif %}
+    {% if event.max_attendees %}<strong>Max Attendees:</strong> {{ event.max_attendees }}<br>{% endif %}
+  </div>
+  {% if event.description %}
+  <p class="flyer-desc">{{ event.description }}</p>
+  {% endif %}
+
+  {% if map_thumb %}
+  <div class="flyer-map">
+    <img src="{{ map_thumb }}" alt="Event location map" loading="lazy">
+  </div>
+  {% endif %}
+
+  {% if qr_data_url %}
+  <div class="flyer-qr">
+    <img src="{{ qr_data_url }}" alt="QR code — scan to RSVP">
+    <p class="flyer-scan-label">Scan to RSVP &amp; learn more</p>
+  </div>
+  {% else %}
+  <p style="font-size:0.9rem;color:#718096">RSVP at: <strong>uc-cleanup.com/events/</strong></p>
+  {% endif %}
+
+  <div class="flyer-footer">
+    UC CleanUp &bull; uc-cleanup.com &bull; Upper Cumberland Region
+  </div>
+</div>
+</body>
+</html>

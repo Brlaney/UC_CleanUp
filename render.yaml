@@ -18,11 +18,10 @@ services:
       - key: DEBUG
         value: "0"
 
-      # Update both values if you add a custom domain.
       - key: ALLOWED_HOSTS
-        value: upper-cumberland-cleanup.onrender.com
+        value: uc-cleanup.com,www.uc-cleanup.com,upper-cumberland-cleanup.onrender.com
       - key: CSRF_TRUSTED_ORIGINS
-        value: https://upper-cumberland-cleanup.onrender.com
+        value: https://uc-cleanup.com,https://www.uc-cleanup.com,https://upper-cumberland-cleanup.onrender.com
 
       # Set manually in Render dashboard — Supabase connection string.
       # Format: postgresql://user:password@host:5432/db?sslmode=require

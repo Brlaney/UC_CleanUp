@@ -42,6 +42,170 @@
     });
   }
 
+  /* ---- Settings modal ---- */
+  (function () {
+    var settingsBtn = document.getElementById("settings-open-btn");
+    var settingsForm = document.getElementById("settings-form");
+    var settingsStatus = document.getElementById("settings-status");
+    var settingsCounty = document.getElementById("settings-county");
+    var settingsDistrictList = document.getElementById("settings-district-list");
+    var saveLabelEl = settingsForm ? settingsForm.querySelector(".btn-label") : null;
+    var saveSpinner = settingsForm ? settingsForm.querySelector(".loading-spinner") : null;
+    if (!settingsBtn) return;
+
+    var prefEndpoint = (config.endpoints || {}).preferences;
+    var districtEndpoint = (config.endpoints || {}).districts;
+
+    function setSettingsStatus(msg, state) {
+      if (!settingsStatus) return;
+      settingsStatus.textContent = msg || "";
+      settingsStatus.className = "feedback-status" + (state ? " is-" + state : "");
+    }
+
+    function renderDistrictCheckboxes(districts, checkedSlugs) {
+      if (!settingsDistrictList) return;
+      var allChecked = !checkedSlugs || !checkedSlugs.length;
+      var initialAllChecked = allChecked || (checkedSlugs && checkedSlugs.length === districts.length);
+      settingsDistrictList.innerHTML = "";
+
+      // --- Select All / Deselect All row ---
+      var selectAllLabel = document.createElement("label");
+      selectAllLabel.className = "layer-toggle layer-toggle--all";
+      selectAllLabel.innerHTML =
+        '<input type="checkbox"' + (initialAllChecked ? " checked" : "") + ">" +
+        "<span>" + (initialAllChecked ? "Deselect All" : "Select All") + "</span>";
+      settingsDistrictList.appendChild(selectAllLabel);
+
+      var divider = document.createElement("div");
+      divider.className = "layer-toggle-divider";
+      settingsDistrictList.appendChild(divider);
+
+      // --- 2-column district grid ---
+      var grid = document.createElement("div");
+      grid.className = "settings-district-grid";
+      settingsDistrictList.appendChild(grid);
+
+      var selectAllChk = selectAllLabel.querySelector("input");
+      var selectAllSpan = selectAllLabel.querySelector("span");
+
+      function updateSelectAll() {
+        var boxes = grid.querySelectorAll("input[name='district_slugs']");
+        var checkedCount = Array.from(boxes).filter(function (b) { return b.checked; }).length;
+        var all = checkedCount === boxes.length;
+        var none = checkedCount === 0;
+        selectAllChk.checked = all;
+        selectAllChk.indeterminate = !all && !none;
+        selectAllSpan.textContent = all ? "Deselect All" : "Select All";
+      }
+
+      // Render each district into the grid
+      districts.forEach(function (d) {
+        var checked = allChecked || (checkedSlugs && checkedSlugs.indexOf(d.slug) !== -1);
+        var label = document.createElement("label");
+        label.className = "layer-toggle";
+        label.innerHTML =
+          '<input type="checkbox" name="district_slugs" value="' + d.slug + '"' + (checked ? " checked" : "") + ">" +
+          "<span>" + d.name + "</span>";
+        label.querySelector("input").addEventListener("change", function (e) {
+          if (window.mapDistrictToggle) window.mapDistrictToggle(d.slug, e.target.checked);
+          updateSelectAll();
+        });
+        grid.appendChild(label);
+      });
+
+      // Select All / Deselect All handler
+      selectAllChk.addEventListener("change", function (e) {
+        var checked = e.target.checked;
+        e.target.indeterminate = false;
+        grid.querySelectorAll("input[name='district_slugs']").forEach(function (chk) {
+          if (chk.checked !== checked) {
+            chk.checked = checked;
+            if (window.mapDistrictToggle) window.mapDistrictToggle(chk.value, checked);
+          }
+        });
+        selectAllSpan.textContent = checked ? "Deselect All" : "Select All";
+      });
+    }
+
+    function loadSettingsData() {
+      if (!districtEndpoint) return;
+      U.fetchJson(districtEndpoint).then(function (data) {
+        var districts = (data.districts || []).filter(function (d) {
+          return d.slug !== "putnam-county";
+        }).sort(function (a, b) {
+          var na = parseInt(a.name.replace(/\D/g, ""), 10) || 0;
+          var nb = parseInt(b.name.replace(/\D/g, ""), 10) || 0;
+          return na - nb;
+        });
+
+        // Render with all checked initially
+        renderDistrictCheckboxes(districts, []);
+
+        // Then overlay saved prefs if authenticated
+        if (config.isAuthenticated && prefEndpoint) {
+          U.fetchJson(prefEndpoint).then(function (prefs) {
+            if (settingsCounty && prefs.default_county) {
+              settingsCounty.value = prefs.default_county;
+            }
+            var slugs = prefs.visible_district_slugs || [];
+            if (slugs.length) {
+              renderDistrictCheckboxes(districts, slugs);
+            }
+          }).catch(function () {});
+        }
+      }).catch(function () {
+        if (settingsDistrictList) {
+          settingsDistrictList.innerHTML = '<span style="color:var(--color-text-muted)">Unable to load districts.</span>';
+        }
+      });
+    }
+
+    settingsBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      // Close hamburger dropdown before opening modal
+      var hamburgerEl = document.getElementById("hamburger-btn");
+      var navCollapseEl = document.getElementById("nav-collapse");
+      if (hamburgerEl) hamburgerEl.setAttribute("aria-expanded", "false");
+      if (navCollapseEl) navCollapseEl.classList.remove("is-open");
+      // Reset and open modal
+      if (settingsCounty) settingsCounty.value = "";
+      if (settingsDistrictList) settingsDistrictList.innerHTML = '<span class="settings-loading">Loading\u2026</span>';
+      setSettingsStatus("");
+      U.openModal("settings-modal");
+      loadSettingsData();
+    });
+
+    if (settingsForm && prefEndpoint) {
+      settingsForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var county = settingsCounty ? settingsCounty.value : "";
+        var boxes = settingsDistrictList
+          ? Array.from(settingsDistrictList.querySelectorAll("input[name='district_slugs']"))
+          : [];
+        var checked = boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; });
+        // Empty array = all visible (default)
+        var slugsToSave = checked.length === boxes.length ? [] : checked;
+
+        if (saveLabelEl) saveLabelEl.textContent = "Saving\u2026";
+        if (saveSpinner) saveSpinner.classList.remove("hidden");
+
+        U.fetchJson(prefEndpoint, {
+          method: "POST",
+          headers: { "X-CSRFToken": U.getCsrfToken(), "Content-Type": "application/json" },
+          body: JSON.stringify({ default_county: county, visible_district_slugs: slugsToSave }),
+        }).then(function () {
+          setSettingsStatus("Preferences saved.", "success");
+          setTimeout(function () { U.closeModal("settings-modal"); }, 700);
+        }).catch(function (err) {
+          setSettingsStatus(err.message || "Failed to save.", "error");
+        }).finally(function () {
+          if (saveLabelEl) saveLabelEl.textContent = "Save Preferences";
+          if (saveSpinner) saveSpinner.classList.add("hidden");
+        });
+      });
+    }
+  }());
+
   /* ---- Generic close-modal buttons ---- */
   document.querySelectorAll("[data-close-modal]").forEach(function (btn) {
     btn.addEventListener("click", function () {

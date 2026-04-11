@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile - UC CleanUp{% endblock %}
+
+{% block content %}
+<section class="auth-wrap">
+    <h1>My Profile</h1>
+    <p class="profile-member-since">Member since {{ request.user.date_joined|date:"F j, Y" }}</p>
+
+    <div class="impact-grid profile-stats">
+        <div class="stat-card stat-card--reports">
+            <span class="stat-label">Sites Reported</span>
+            <strong>{{ reports_count }}</strong>
+            <small>trash sites you've reported</small>
+        </div>
+        <div class="stat-card stat-card--cleaned">
+            <span class="stat-label">Cleanups Submitted</span>
+            <strong>{{ cleanups_count }}</strong>
+            <small>sites you've helped clean up</small>
+        </div>
+    </div>
+
+    <div class="profile-leaderboard-pref">
+        <label class="toggle-chip" style="max-width:360px;cursor:pointer;">
+            <input type="checkbox" id="public-profile-toggle" {% if public_profile %}checked{% endif %}>
+            <span>Show my name on the leaderboard</span>
+        </label>
+        <p id="leaderboard-pref-status" style="min-height:1.2rem;font-size:0.88rem;color:var(--color-text-muted);margin:0.4rem 0 0;"></p>
+    </div>
+
+    {% if user_badges %}
+    <div class="profile-badges">
+        <h2 style="font-size:1rem;margin:1.5rem 0 0.6rem;">Your Badges</h2>
+        <div class="badge-chip-row">
+            {% for ub in user_badges %}
+            <div class="badge-chip" title="{{ ub.badge.description }}">
+                <span class="badge-chip-icon">{{ ub.badge.icon }}</span>
+                <span class="badge-chip-name">{{ ub.badge.name }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="profile-actions">
+        <a class="btn btn-primary" href="{% url 'map' %}">Back to Map</a>
+        <a class="btn btn-subtle btn-compact" href="{% url 'leaderboard' %}">View Leaderboard</a>
+        <a class="btn btn-subtle btn-compact" href="{% url 'challenges' %}">Challenges</a>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var toggle = document.getElementById("public-profile-toggle");
+    var status = document.getElementById("leaderboard-pref-status");
+    if (!toggle) return;
+
+    var csrfToken = document.querySelector("meta[name='csrf-token']");
+    var csrf = csrfToken ? csrfToken.content : "";
+
+    toggle.addEventListener("change", function () {
+        status.textContent = "Saving\u2026";
+        fetch("{% url 'api_preferences' %}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+            body: JSON.stringify({ public_profile: toggle.checked }),
+        })
+        .then(function (r) { return r.json(); })
+        .then(function () {
+            status.textContent = toggle.checked ? "Your name will appear on the leaderboard." : "You will appear as Anonymous.";
+            setTimeout(function () { status.textContent = ""; }, 3000);
+        })
+        .catch(function () {
+            status.textContent = "Failed to save preference.";
+        });
+    });
+}());
+</script>
+{% endblock %}

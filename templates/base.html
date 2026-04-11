@@ -5,11 +5,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token }}">
+    <meta name="description" content="{% block meta_description %}UC CleanUp — community-powered trash reporting and cleanup tracking for the Upper Cumberland region of Tennessee.{% endblock %}">
     <title>{% block title %}Upper-Cumberland CleanUp{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <meta name="theme-color" content="#0d5e97">
     <link rel="stylesheet" href="{% static 'css/palette.css' %}">
     <link rel="stylesheet" href="{% static 'css/site.css' %}">
     {% block extra_head %}{% endblock %}
@@ -19,6 +22,7 @@
 <header class="topbar">
     <div class="topbar-inner">
         <a class="brand" href="{% url 'map' %}">
+            <img class="brand-icon" src="{% static 'images/logo_2.svg' %}" alt="" height="36" width="36" fetchpriority="high">
             <img class="brand-logo" src="{% static 'images/nav-banner.png' %}" alt="Upper-Cumberland CleanUp" height="36">
         </a>
         <button class="hamburger" id="hamburger-btn" type="button" aria-expanded="false" aria-controls="nav-collapse" aria-label="Toggle menu">
@@ -31,13 +35,24 @@
                 <a class="topnav-link{% if request.resolver_match.url_name == 'map' %} is-active{% endif %}" href="{% url 'map' %}"{% if request.resolver_match.url_name == 'map' %} aria-current="page"{% endif %}>Map</a>
                 <a class="topnav-link{% if request.resolver_match.url_name == 'cleanups' %} is-active{% endif %}" href="{% url 'cleanups' %}"{% if request.resolver_match.url_name == 'cleanups' %} aria-current="page"{% endif %}>Cleanups</a>
                 <a class="topnav-link{% if request.resolver_match.url_name == 'about' %} is-active{% endif %}" href="{% url 'about' %}"{% if request.resolver_match.url_name == 'about' %} aria-current="page"{% endif %}>About</a>
+                <a class="topnav-link{% if request.resolver_match.url_name == 'leaderboard' %} is-active{% endif %}" href="{% url 'leaderboard' %}"{% if request.resolver_match.url_name == 'leaderboard' %} aria-current="page"{% endif %}>Leaderboard</a>
+                <a class="topnav-link{% if request.resolver_match.url_name == 'events' %} is-active{% endif %}" href="{% url 'events' %}"{% if request.resolver_match.url_name == 'events' %} aria-current="page"{% endif %}>Events</a>
+                <a class="topnav-link{% if request.resolver_match.url_name in 'team,teams' %} is-active{% endif %}" href="{% url 'teams' %}">Teams</a>
+                <a class="topnav-link{% if request.resolver_match.url_name == 'challenges' %} is-active{% endif %}" href="{% url 'challenges' %}">Challenges</a>
+                {% if user.is_authenticated %}{% with role=user.profile.role %}{% if role == 'COORDINATOR' or role == 'ADMIN' or user.is_staff or user.is_superuser %}
+                    <a class="topnav-link{% if request.resolver_match.url_name == 'dashboard' %} is-active{% endif %}" href="{% url 'dashboard' %}">Dashboard</a>
+                {% endif %}{% endwith %}{% endif %}
                 {% if user.is_authenticated and user.is_staff or user.is_superuser %}
                     <a class="topnav-link" href="{% url 'admin:index' %}">Admin</a>
                 {% endif %}
             </nav>
             <div class="user-actions">
+                <button id="settings-open-btn" class="btn-settings" type="button" aria-label="Map Settings" aria-haspopup="dialog">
+                    <img src="{% static 'images/icons/settings.svg' %}" alt="" width="18" height="18">
+                    <span class="btn-settings-label">Settings</span>
+                </button>
                 {% if user.is_authenticated %}
-                    <span class="user-pill">{{ user.username }}</span>
+                    <a class="user-pill" href="{% url 'profile' %}">{{ user.username }}</a>
                     <button id="feedback-open-btn" class="btn btn-secondary btn-compact" type="button">Feedback</button>
                     <form method="post" action="{% url 'logout' %}">
                         {% csrf_token %}
@@ -55,6 +70,11 @@
     {% block content %}{% endblock %}
 </main>
 <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+{% if request.resolver_match.url_name != 'map' %}
+<footer class="site-footer">
+    <p class="site-footer-copy">&copy; 2026 Brendan Laney</p>
+</footer>
+{% endif %}
 {% if user.is_authenticated %}
     <div class="modal hidden" id="feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedback-modal-title">
         <div class="modal-card modal-card--narrow">
@@ -84,12 +104,67 @@
     window.APP_BASE_CONFIG = {
         isAuthenticated: {{ user.is_authenticated|yesno:"true,false" }},
         endpoints: {
-            feedbackCreate: "{% url 'api_feedback_create' %}"
+            feedbackCreate: "{% url 'api_feedback_create' %}",
+            districts: "{% url 'api_districts' %}",
+            preferences: {% if user.is_authenticated %}"{% url 'api_preferences' %}"{% else %}null{% endif %}
         }
     };
 </script>
+<!-- Settings modal -->
+<div class="modal hidden" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+    <div class="modal-card modal-card--settings">
+        <h2 id="settings-modal-title">Map Settings</h2>
+        <p class="modal-copy">Choose which layers appear on the map.</p>
+        <form id="settings-form">
+            {% csrf_token %}
+            <label for="settings-county">Default County</label>
+            <select id="settings-county" name="default_county">
+                <option value="">-- All Counties --</option>
+                <option value="Cannon">Cannon</option>
+                <option value="Clay">Clay</option>
+                <option value="Cumberland">Cumberland</option>
+                <option value="DeKalb">DeKalb</option>
+                <option value="Fentress">Fentress</option>
+                <option value="Jackson">Jackson</option>
+                <option value="Macon">Macon</option>
+                <option value="Overton">Overton</option>
+                <option value="Pickett">Pickett</option>
+                <option value="Putnam">Putnam</option>
+                <option value="Smith">Smith</option>
+                <option value="Van Buren">Van Buren</option>
+                <option value="Warren">Warren</option>
+                <option value="White">White</option>
+            </select>
+            <fieldset class="settings-fieldset">
+                <legend>Visible Districts</legend>
+                <div id="settings-district-list" class="settings-district-list">
+                    <span class="settings-loading">Loading&hellip;</span>
+                </div>
+            </fieldset>
+            <div class="button-row settings-actions">
+                {% if user.is_authenticated %}
+                    <button class="btn btn-primary" type="submit" id="settings-save-btn">
+                        <span class="btn-label">Save Preferences</span>
+                        <span class="loading-spinner hidden" aria-hidden="true"></span>
+                    </button>
+                {% else %}
+                    <p class="settings-anon-note"><a href="{% url 'login' %}">Log in</a> to save your preferences.</p>
+                {% endif %}
+                <button class="btn btn-subtle" type="button" data-close-modal="settings-modal">Close</button>
+            </div>
+            <div id="settings-status" class="feedback-status" aria-live="polite"></div>
+        </form>
+    </div>
+</div>
 <script src="{% static 'js/utils.js' %}"></script>
 <script src="{% static 'js/base.js' %}"></script>
 {% block scripts %}{% endblock %}
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js').catch(function() {});
+  });
+}
+</script>
 </body>
 </html>

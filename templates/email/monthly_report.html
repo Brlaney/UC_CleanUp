@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: system-ui, sans-serif; color: #1a2940; max-width: 720px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { font-size: 1.3rem; }
+  h2 { font-size: 1.05rem; margin-top: 2rem; border-top: 2px solid #c7d8ea; padding-top: 1rem; }
+  p { color: #4a5568; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 1rem; }
+  th { text-align: left; padding: 0.5rem 0.75rem; background: #eaf1f8; border-bottom: 2px solid #c7d8ea; }
+  td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.78rem; font-weight: 700; }
+  .badge-pending { background: #fde8dc; color: #9b3a12; }
+  .badge-in-progress { background: #fef9c3; color: #7c5f00; }
+  .tier-box { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; }
+  .tier-1 { background: #fef9c3; border-left: 4px solid #ca8a04; }
+  .tier-2 { background: #fde8dc; border-left: 4px solid #c2410c; }
+  .tier-3 { background: #fee2e2; border-left: 4px solid #991b1b; }
+  a { color: #0e5ea8; }
+</style>
+</head>
+<body>
+<h1>Persistent Problem Sites — {{ report_date|date:"F Y" }}</h1>
+<p>
+  This report covers <strong>{{ total }}</strong> trash site{{ total|pluralize }} that have been open
+  for 90 or more days without resolution. Sites are grouped by escalation tier.
+</p>
+
+{% if tier3_sites %}
+<h2>&#x1F6A8; Tier 3 — Chronic Unresolved (365+ days)</h2>
+<div class="tier-box tier-3">
+  <strong>{{ tier3_sites|length }} site{{ tier3_sites|length|pluralize }}</strong> open for over a year.
+  These have been flagged as <em>Chronic</em> on the public map and require immediate attention.
+  Recipients: District Rep, Commissioner, DPW Director.
+</div>
+{% include "email/_site_table.html" with sites=tier3_sites %}
+{% endif %}
+
+{% if tier2_sites %}
+<h2>&#x26A0;&#xFE0F; Tier 2 — Escalated (180–364 days)</h2>
+<div class="tier-box tier-2">
+  <strong>{{ tier2_sites|length }} site{{ tier2_sites|length|pluralize }}</strong> open for 6+ months.
+  This tier is escalated to the Commissioner and DPW Director in addition to the District Rep.
+</div>
+{% include "email/_site_table.html" with sites=tier2_sites %}
+{% endif %}
+
+{% if tier1_sites %}
+<h2>&#x1F4CB; Tier 1 — Monitoring (90–179 days)</h2>
+<div class="tier-box tier-1">
+  <strong>{{ tier1_sites|length }} site{{ tier1_sites|length|pluralize }}</strong> open for 3–6 months.
+  Sent to District Rep only.
+</div>
+{% include "email/_site_table.html" with sites=tier1_sites %}
+{% endif %}
+
+<p style="margin-top:2rem;font-size:0.85rem;color:#718096;">
+  This report was generated automatically by UC CleanUp. To view sites on the map, visit
+  <a href="https://uc-cleanup.com">uc-cleanup.com</a>.
+</p>
+</body>
+</html>

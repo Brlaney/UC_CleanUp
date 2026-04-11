@@ -31,16 +31,31 @@ class Command(BaseCommand):
         if not features:
             raise CommandError("GeoJSON file contains no features.")
 
-        geom_data = features[0].get("geometry")
-        if not geom_data:
-            raise CommandError("First feature has no geometry.")
+        # Dissolve all features into a single MultiPolygon
+        dissolved = None
+        for feat in features:
+            geom_data = feat.get("geometry")
+            if not geom_data:
+                continue
+            g = GEOSGeometry(json.dumps(geom_data), srid=4326)
+            dissolved = g if dissolved is None else dissolved.union(g)
 
-        geom = GEOSGeometry(json.dumps(geom_data), srid=4326)
+        if dissolved is None:
+            raise CommandError("No valid geometries found in GeoJSON file.")
 
-        if isinstance(geom, Polygon):
-            geom = MultiPolygon(geom, srid=4326)
-        elif not isinstance(geom, MultiPolygon):
-            raise CommandError(f"Expected Polygon or MultiPolygon, got {geom.geom_type}.")
+        if isinstance(dissolved, Polygon):
+            geom = MultiPolygon(dissolved, srid=4326)
+        elif isinstance(dissolved, MultiPolygon):
+            geom = dissolved
+        else:
+            # GeometryCollection — extract polygons
+            polys = [g for g in dissolved if isinstance(g, (Polygon, MultiPolygon))]
+            if not polys:
+                raise CommandError(f"No polygons in dissolved geometry ({dissolved.geom_type}).")
+            geom = MultiPolygon(
+                *[p for poly in polys for p in (list(poly) if isinstance(poly, MultiPolygon) else [poly])],
+                srid=4326,
+            )
 
         district, created = District.objects.update_or_create(
             slug=slug,

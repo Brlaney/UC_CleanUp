@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Cleanup Events — UC CleanUp{% endblock %}
+
+{% block extra_head %}
+<style>
+  .events-wrap { max-width: 760px; margin: 0 auto; padding: 2rem 1rem; }
+  .period-switcher { display: flex; gap: 0.5rem; margin: 1.25rem 0; }
+  .period-btn { padding: 0.45rem 1.1rem; border: 1px solid var(--color-border-soft); border-radius: var(--radius-pill); background: var(--color-surface-soft); color: var(--color-text-secondary); font-weight: 700; cursor: pointer; font-size: 0.9rem; }
+  .period-btn.is-active { background: var(--color-btn-primary-bg); color: #fff; border-color: var(--color-btn-primary-bg); }
+  .event-cards { display: grid; gap: 1rem; }
+  .event-card { padding: 1.2rem 1.25rem; background: rgba(255,255,255,0.94); border: 1px solid var(--color-border-soft); border-left: 4px solid #7c3aed; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
+  .event-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .event-card h3 { margin: 0 0 0.3rem; font-size: 1.1rem; }
+  .event-date { font-size: 0.9rem; font-weight: 700; color: #7c3aed; margin: 0 0 0.5rem; }
+  .event-meta { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.88rem; color: var(--color-text-muted); margin-bottom: 0.5rem; }
+  .event-desc { margin: 0.5rem 0 0; color: var(--color-text-secondary); font-size: 0.95rem; }
+  .event-badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+  .event-badge--scheduled { background: rgba(124,58,237,0.1); color: #7c3aed; }
+  .event-badge--completed { background: var(--color-status-cleaned-bg); color: var(--color-status-cleaned-text); }
+  .event-badge--cancelled { background: var(--color-status-invalid-bg); color: var(--color-status-invalid-text); }
+  .event-badge--full { background: var(--color-hazard-bg); color: var(--color-hazard-text); }
+  .events-empty { padding: 2rem; text-align: center; color: var(--color-text-secondary); }
+  .events-loading { padding: 2rem; text-align: center; color: var(--color-text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="events-wrap">
+  <h1>Cleanup Events</h1>
+  <p>Community-organized cleanup events in the Upper Cumberland region. Log in to RSVP.</p>
+
+  <div class="period-switcher" role="group" aria-label="Event status">
+    <button class="period-btn is-active" data-status="SCHEDULED" type="button">Upcoming</button>
+    <button class="period-btn" data-status="COMPLETED" type="button">Past</button>
+  </div>
+
+  <div id="events-content">
+    <div class="events-loading">Loading&hellip;</div>
+  </div>
+
+  <p style="margin-top:2rem">
+    <a class="btn btn-subtle btn-compact" href="{% url 'map' %}">&larr; Back to Map</a>
+    {% if user.is_authenticated %}
+      <span class="btn btn-subtle btn-compact" style="cursor:default;opacity:0.7">&#128197; Create events from the map</span>
+    {% endif %}
+  </p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var content = document.getElementById("events-content");
+  var activeStatus = "SCHEDULED";
+
+  function formatDate(iso) {
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric", year: "numeric" }) +
+      " at " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true });
+  }
+
+  function renderCards(data) {
+    var results = data.results || [];
+    if (!results.length) {
+      content.innerHTML = '<div class="events-empty">No ' + (activeStatus === "SCHEDULED" ? "upcoming" : "past") + ' events found.</div>';
+      return;
+    }
+    var html = '<div class="event-cards">';
+    results.forEach(function (ev) {
+      var badgeCls = "event-badge--" + ev.status.toLowerCase();
+      html += '<div class="event-card">';
+      html += '<div class="event-card-top">';
+      html += '<div>';
+      html += '<h3>' + escHtml(ev.title) + '</h3>';
+      html += '<p class="event-date">&#128197; ' + formatDate(ev.event_date) + '</p>';
+      html += '<div class="event-meta">';
+      html += '<span>Organizer: ' + escHtml(ev.organizer) + '</span>';
+      html += '<span>RSVPs: ' + ev.rsvp_count + (ev.max_attendees ? ' / ' + ev.max_attendees : '') + '</span>';
+      if (ev.district) html += '<span>District: ' + escHtml(ev.district) + '</span>';
+      html += '</div>';
+      html += '</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:0.4rem;align-items:flex-end">';
+      html += '<span class="event-badge ' + badgeCls + '">' + ev.status + '</span>';
+      if (ev.is_full) html += '<span class="event-badge event-badge--full">Full</span>';
+      html += '</div>';
+      html += '</div>';
+      if (ev.description) html += '<p class="event-desc">' + escHtml(ev.description) + '</p>';
+      if (ev.status === "SCHEDULED") {
+        html += '<div style="margin-top:0.85rem;display:flex;gap:0.5rem;flex-wrap:wrap">';
+        html += '<a class="btn btn-primary btn-compact" href="/?focus_event=' + ev.id + '">View on Map</a>';
+        html += '<a class="btn btn-subtle btn-compact" href="/api/events/' + ev.id + '/flyer/" target="_blank" rel="noopener">&#128203; Get Flyer</a>';
+        html += '</div>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+    content.innerHTML = html;
+  }
+
+  function escHtml(s) {
+    return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function load(status) {
+    content.innerHTML = '<div class="events-loading">Loading&hellip;</div>';
+    fetch("/api/events/?status=" + status)
+      .then(function (r) { return r.json(); })
+      .then(renderCards)
+      .catch(function () {
+        content.innerHTML = '<div class="events-empty">Unable to load events.</div>';
+      });
+  }
+
+  document.querySelectorAll(".period-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      document.querySelectorAll(".period-btn").forEach(function (b) { b.classList.remove("is-active"); });
+      btn.classList.add("is-active");
+      activeStatus = btn.dataset.status;
+      load(activeStatus);
+    });
+  });
+
+  load(activeStatus);
+}());
+</script>
+{% endblock %}

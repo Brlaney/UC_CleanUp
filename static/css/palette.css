@@ -11,7 +11,7 @@
   --color-surface-muted: #edf4f8;
   --color-surface-tint: rgba(10, 93, 146, 0.08);
 
-  --color-topbar-bg: linear-gradient(135deg, #0a4b80 0%, #0d5e97 54%, #1d755d 100%);
+  --color-topbar-bg: #0d5e97;
   --color-topbar-text: #f5fbff;
 
   --color-border-soft: #d7e3eb;

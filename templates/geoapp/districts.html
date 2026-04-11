@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Districts — UC CleanUp{% endblock %}
+
+{% block extra_head %}
+<style>
+  .districts-wrap { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+  .districts-wrap h1 { margin-bottom: 0.25rem; }
+  .districts-subtitle { color: var(--color-text-muted); margin-bottom: 1.75rem; }
+  .district-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+  .district-card { background: rgba(255,255,255,0.94); border: 1px solid var(--color-border-soft); border-radius: var(--radius-md); padding: 1.2rem 1.25rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 0.4rem; }
+  .district-card h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+  .district-stats-row { display: flex; gap: 1.25rem; flex-wrap: wrap; font-size: 0.87rem; color: var(--color-text-secondary); }
+  .district-stat strong { display: block; font-size: 1.3rem; font-weight: 800; color: var(--color-btn-primary-bg); line-height: 1.1; }
+  .district-progress-bar { background: var(--color-border-soft); border-radius: 999px; height: 6px; margin: 0.4rem 0; }
+  .district-progress-fill { background: var(--color-status-cleaned-text, #065f46); border-radius: 999px; height: 6px; transition: width 0.5s; }
+  .district-card-footer { margin-top: 0.5rem; }
+  .districts-loading { padding: 2rem; text-align: center; color: var(--color-text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="districts-wrap">
+  <h1>Districts</h1>
+  <p class="districts-subtitle">Cleanup progress by district across the Upper Cumberland region.</p>
+  <div id="district-grid" class="district-grid">
+    <div class="districts-loading">Loading&hellip;</div>
+  </div>
+  <p style="margin-top:2rem"><a class="btn btn-subtle btn-compact" href="{% url 'map' %}">&larr; Back to Map</a></p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var grid = document.getElementById("district-grid");
+
+  function escHtml(s) {
+    return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function renderCard(d) {
+    var pct = d.site_count > 0 ? Math.round(d.cleaned_count / d.site_count * 100) : 0;
+    var card = document.createElement("div");
+    card.className = "district-card";
+    card.innerHTML =
+      '<h3>' + escHtml(d.name) + '</h3>' +
+      '<div class="district-stats-row">' +
+        '<div class="district-stat"><strong>' + d.site_count + '</strong>Total</div>' +
+        '<div class="district-stat"><strong>' + d.cleaned_count + '</strong>Cleaned</div>' +
+        '<div class="district-stat"><strong>' + d.pending_count + '</strong>Pending</div>' +
+        '<div class="district-stat"><strong>' + d.bags_total + '</strong>Bags</div>' +
+      '</div>' +
+      '<div class="district-progress-bar"><div class="district-progress-fill" style="width:' + pct + '%"></div></div>' +
+      '<small style="color:var(--color-text-muted)">' + pct + '% cleaned</small>' +
+      '<div class="district-card-footer">' +
+        '<a class="btn btn-subtle btn-compact" href="/districts/' + escHtml(d.slug) + '/">View Details &rarr;</a>' +
+        '<a class="btn btn-subtle btn-compact" href="/?district=' + escHtml(d.slug) + '" style="margin-left:0.5rem">Map</a>' +
+      '</div>';
+    return card;
+  }
+
+  // Load list of districts from existing API, then fetch per-district stats
+  fetch("/api/districts/")
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var districts = (data.districts || []).filter(function (d) { return d.slug !== "putnam-county"; });
+      if (!districts.length) {
+        grid.innerHTML = '<p style="color:var(--color-text-muted)">No districts found.</p>';
+        return;
+      }
+      grid.innerHTML = "";
+      // Fetch stats for each district in parallel
+      Promise.all(districts.map(function (d) {
+        return fetch("/api/districts/" + d.slug + "/stats/")
+          .then(function (r) { return r.json(); })
+          .catch(function () {
+            return { slug: d.slug, name: d.name, site_count: 0, cleaned_count: 0, pending_count: 0, chronic_count: 0, bags_total: 0, top_volunteers: [], recent_cleanups: [] };
+          });
+      })).then(function (stats) {
+        stats.forEach(function (s) { grid.appendChild(renderCard(s)); });
+      });
+    })
+    .catch(function () {
+      grid.innerHTML = '<p style="color:var(--color-text-muted)">Unable to load districts.</p>';
+    });
+}());
+</script>
+{% endblock %}

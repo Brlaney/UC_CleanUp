@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Check Your Email - District 3 CleanUp{% endblock %}
+
+{% block content %}
+<section class="auth-wrap">
+    <h1>Check Your Email</h1>
+    <p>If that email address is on file, we've sent your username. It may take a minute to arrive.</p>
+    <p class="auth-link"><a href="{% url 'login' %}">&larr; Back to log in</a></p>
+</section>
+{% endblock %}

@@ -15,8 +15,16 @@ def _env_list(name, default=""):
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
 DEBUG = os.getenv("DEBUG", "1") == "1"
-ALLOWED_HOSTS = _env_list("ALLOWED_HOSTS", "127.0.0.1,localhost")
-CSRF_TRUSTED_ORIGINS = _env_list("CSRF_TRUSTED_ORIGINS")
+ALLOWED_HOSTS = _env_list(
+    "ALLOWED_HOSTS",
+    "uc-cleanup.com,www.uc-cleanup.com,upper-cumberland-cleanup.onrender.com,127.0.0.1,localhost,192.168.1.37",
+)
+if DEBUG:
+    ALLOWED_HOSTS.append("*")
+CSRF_TRUSTED_ORIGINS = _env_list(
+    "CSRF_TRUSTED_ORIGINS",
+    "https://uc-cleanup.com,https://www.uc-cleanup.com,https://upper-cumberland-cleanup.onrender.com",
+)
 
 
 # Application definition
@@ -74,9 +82,10 @@ default_database_url = (
     f"/{os.getenv('POSTGRES_DB', 'putnam_trashmap')}"
 )
 
+_db_url = os.getenv("DB_CONN_STRING") or os.getenv("DATABASE_URL") or default_database_url
 DATABASES = {
-    "default": dj_database_url.config(
-        default=os.getenv("DB_CONN_STRING", os.getenv("DATABASE_URL", default_database_url)),
+    "default": dj_database_url.parse(
+        _db_url,
         engine="django.contrib.gis.db.backends.postgis",
         conn_max_age=int(os.getenv("CONN_MAX_AGE", "60")),
         ssl_require=os.getenv("DATABASE_SSL_REQUIRE", "0") == "1",
@@ -148,6 +157,22 @@ STATICFILES_BACKEND = (
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
+
+# Email — defaults to console (prints to stdout) in dev; set env vars for SMTP in prod
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@uc-cleanup.com")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+DISTRICT_REP_EMAIL = os.getenv("DISTRICT_REP_EMAIL", "")
+COMMISSIONER_EMAIL = os.getenv("COMMISSIONER_EMAIL", "")
+DPW_DIRECTOR_EMAIL = os.getenv("DPW_DIRECTOR_EMAIL", "")
+
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
+VAPID_EMAIL = os.getenv("VAPID_EMAIL", "mailto:admin@uc-cleanup.com")
 
 USE_S3_MEDIA = os.getenv("USE_S3_MEDIA", "0") == "1"
 if USE_S3_MEDIA:

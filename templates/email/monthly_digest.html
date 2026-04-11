@@ -1,0 +1,38 @@
+Hi {{ user.username }},
+
+Here's your UC CleanUp monthly update for {{ report_date|date:"F Y" }}.
+
+--- NEAR YOU (within {{ radius_miles }} miles) ---
+
+{% if nearby_new %}
+{{ nearby_new }} new trash report{{ nearby_new|pluralize }} in your area this month.
+View them on the map: https://uc-cleanup.com/
+{% else %}
+No new reports near your saved location this month.
+{% endif %}
+
+--- UPCOMING EVENTS ---
+
+{% if upcoming_events %}
+{% for event in upcoming_events %}
+• {{ event.title }} — {{ event.event_date|date:"N j, Y, g:i A" }}
+  RSVPs: {{ event.rsvps.count }}{% if event.max_attendees %} / {{ event.max_attendees }}{% endif %}
+{% endfor %}
+View all events: https://uc-cleanup.com/events/
+{% else %}
+No upcoming events near you. Check https://uc-cleanup.com/events/ for all events.
+{% endif %}
+
+--- YOUR STATS ---
+
+Cleanups this month: {{ this_month_cleanups }}
+Cleanups last month: {{ last_month_cleanups }}
+{% if this_month_cleanups > last_month_cleanups %}
+Great improvement! You did {{ this_month_cleanups|add:"-"|add:last_month_cleanups }} more cleanup{{ this_month_cleanups|add:"-"|add:last_month_cleanups|pluralize }} than last month.
+{% endif %}
+
+View your full profile: https://uc-cleanup.com/profile/
+
+---
+You're receiving this because you enabled location-based notifications on UC CleanUp.
+To stop receiving these emails, remove your push subscription from the map settings.

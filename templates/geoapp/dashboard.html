@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}Coordinator Dashboard — UC CleanUp{% endblock %}
+
+{% block extra_head %}
+<style>
+  .dash-wrap { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
+  .dash-wrap h1 { margin-bottom: 0.25rem; }
+  .dash-subtitle { color: var(--color-text-muted); margin-bottom: 1.75rem; }
+
+  /* Stats grid */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .stat-card { background: rgba(255,255,255,0.94); border: 1px solid var(--color-border-soft); border-radius: var(--radius-md); padding: 1.1rem 1.25rem; box-shadow: var(--shadow-sm); }
+  .stat-card-num { font-size: 2rem; font-weight: 800; color: var(--color-btn-primary-bg); line-height: 1.1; }
+  .stat-card-label { font-size: 0.82rem; color: var(--color-text-muted); margin-top: 0.25rem; }
+
+  /* Tables */
+  .dash-section { margin-bottom: 2.5rem; }
+  .dash-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem; }
+  .dash-section-header h2 { margin: 0; font-size: 1.1rem; }
+  .dash-table-wrap { overflow-x: auto; border-radius: var(--radius-md); border: 1px solid var(--color-border-soft); }
+  .dash-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; background: rgba(255,255,255,0.96); }
+  .dash-table th { background: var(--color-surface-soft); font-weight: 700; text-align: left; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--color-border-soft); white-space: nowrap; }
+  .dash-table td { padding: 0.55rem 0.9rem; border-bottom: 1px solid var(--color-border-soft); vertical-align: middle; }
+  .dash-table tr:last-child td { border-bottom: none; }
+  .dash-table a { color: var(--color-btn-primary-bg); }
+
+  /* Status badges */
+  .status-chip { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.74rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+  .status-chip--pending { background: var(--color-status-pending-bg, #fef3c7); color: var(--color-status-pending-text, #92400e); }
+  .status-chip--cleaned { background: var(--color-status-cleaned-bg, #d1fae5); color: var(--color-status-cleaned-text, #065f46); }
+  .status-chip--in_progress { background: var(--color-status-in-progress-bg, #dbeafe); color: var(--color-status-in-progress-text, #1e40af); }
+
+  /* Export bar */
+  .export-bar { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .export-bar a { font-size: 0.87rem; }
+
+  /* Activity log */
+  .activity-list { list-style: none; margin: 0; padding: 0; }
+  .activity-item { display: flex; align-items: flex-start; gap: 0.7rem; padding: 0.55rem 0.9rem; border-bottom: 1px solid var(--color-border-soft); font-size: 0.87rem; background: rgba(255,255,255,0.96); }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-btn-primary-bg); margin-top: 5px; flex-shrink: 0; }
+  .activity-text { flex: 1; }
+  .activity-time { color: var(--color-text-muted); font-size: 0.8rem; white-space: nowrap; }
+
+  /* District table */
+  .dist-bar-wrap { min-width: 80px; }
+  .dist-bar-bg { background: var(--color-border-soft); border-radius: 999px; height: 6px; }
+  .dist-bar-fill { background: var(--color-btn-primary-bg); border-radius: 999px; height: 6px; }
+
+  @media (max-width: 600px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="dash-wrap">
+  <h1>Coordinator Dashboard</h1>
+  <p class="dash-subtitle">Restricted to coordinators and administrators.</p>
+
+  <!-- Summary stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-card-num">{{ pending_count }}</div>
+      <div class="stat-card-label">Pending Reports</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-num">{{ in_progress_count }}</div>
+      <div class="stat-card-label">In Progress</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-num">{{ awaiting_verification }}</div>
+      <div class="stat-card-label">Awaiting Verification</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-num">{{ chronic_count }}</div>
+      <div class="stat-card-label">Chronic Sites</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-num">{{ bags_this_month }}</div>
+      <div class="stat-card-label">Bags This Month</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-num">{{ new_volunteers_this_month }}</div>
+      <div class="stat-card-label">New Volunteers This Month</div>
+    </div>
+  </div>
+
+  <!-- Data export -->
+  <div class="dash-section">
+    <div class="dash-section-header">
+      <h2>Export Site Data</h2>
+    </div>
+    <div class="export-bar">
+      <a class="btn btn-subtle btn-compact" href="{% url 'api_export_sites' fmt='csv' %}">&#8659; Export CSV</a>
+      <a class="btn btn-subtle btn-compact" href="{% url 'api_export_sites' fmt='geojson' %}">&#8659; Export GeoJSON</a>
+    </div>
+  </div>
+
+  <!-- Pending verifications -->
+  <div class="dash-section">
+    <div class="dash-section-header">
+      <h2>Awaiting Verification ({{ pending_verifications|length }}{% if pending_verifications|length == 50 %}+{% endif %})</h2>
+    </div>
+    {% if pending_verifications %}
+    <div class="dash-table-wrap">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>District</th>
+            <th>Reported By</th>
+            <th>Cleaned</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for site in pending_verifications %}
+          <tr>
+            <td><a href="/?focus_id={{ site.id }}">{{ site.title|default:"Unnamed Site" }}</a></td>
+            <td>{{ site.district.name|default:"—" }}</td>
+            <td>{{ site.created_by.username|default:"Anonymous" }}</td>
+            <td>{{ site.cleaned_at|date:"N j, Y"|default:"—" }}</td>
+            <td><a class="btn btn-subtle btn-compact" href="/?focus_id={{ site.id }}">Review</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="color:var(--color-text-muted)">No sites awaiting verification.</p>
+    {% endif %}
+  </div>
+
+  <!-- Chronic sites -->
+  <div class="dash-section">
+    <div class="dash-section-header">
+      <h2>Chronic Sites ({{ chronic_sites|length }}{% if chronic_sites|length == 50 %}+{% endif %})</h2>
+    </div>
+    {% if chronic_sites %}
+    <div class="dash-table-wrap">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Status</th>
+            <th>District</th>
+            <th>Reported</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for site in chronic_sites %}
+          <tr>
+            <td><a href="/?focus_id={{ site.id }}">{{ site.title|default:"Unnamed Site" }}</a></td>
+            <td><span class="status-chip status-chip--{{ site.status|lower }}">{{ site.status }}</span></td>
+            <td>{{ site.district.name|default:"—" }}</td>
+            <td>{{ site.created_at|date:"N j, Y" }}</td>
+            <td><a class="btn btn-subtle btn-compact" href="/?focus_id={{ site.id }}">View</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="color:var(--color-text-muted)">No chronic sites flagged.</p>
+    {% endif %}
+  </div>
+
+  <!-- Per-district breakdown -->
+  <div class="dash-section">
+    <div class="dash-section-header">
+      <h2>District Breakdown</h2>
+    </div>
+    {% if district_breakdown %}
+    <div class="dash-table-wrap">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>District</th>
+            <th>Pending</th>
+            <th>Cleaned</th>
+            <th>Chronic</th>
+            <th>Total</th>
+            <th>Progress</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in district_breakdown %}
+          {% if row.total > 0 %}
+          <tr>
+            <td><a href="{% url 'district_detail' row.district.slug %}">{{ row.district.name }}</a></td>
+            <td>{{ row.pending }}</td>
+            <td>{{ row.cleaned }}</td>
+            <td>{{ row.chronic }}</td>
+            <td>{{ row.total }}</td>
+            <td>
+              {% if row.total > 0 %}
+              <div class="dist-bar-wrap">
+                <div class="dist-bar-bg">
+                  <div class="dist-bar-fill" style="width:{% widthratio row.cleaned row.total 100 %}%"></div>
+                </div>
+                <small style="color:var(--color-text-muted)">{% widthratio row.cleaned row.total 100 %}% cleaned</small>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="color:var(--color-text-muted)">No district data.</p>
+    {% endif %}
+  </div>
+
+  <!-- Recent activity -->
+  <div class="dash-section">
+    <div class="dash-section-header">
+      <h2>Recent Activity</h2>
+    </div>
+    {% if recent_activity %}
+    <div class="dash-table-wrap" style="border-radius:var(--radius-md)">
+      <ul class="activity-list">
+        {% for log in recent_activity %}
+        <li class="activity-item">
+          <div class="activity-dot"></div>
+          <div class="activity-text">
+            <strong>{{ log.actor.username|default:"System" }}</strong>
+            — {{ log.get_activity_type_display }}
+            {% if log.trash_site %}
+              on <a href="/?focus_id={{ log.trash_site.id }}">{{ log.trash_site.title|default:"a site" }}</a>
+            {% endif %}
+            {% if log.summary %}<span style="color:var(--color-text-muted)"> · {{ log.summary }}</span>{% endif %}
+          </div>
+          <div class="activity-time">{{ log.created_at|date:"N j, g:i A" }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% else %}
+    <p style="color:var(--color-text-muted)">No recent activity.</p>
+    {% endif %}
+  </div>
+
+  <p><a class="btn btn-subtle btn-compact" href="{% url 'map' %}">&larr; Back to Map</a></p>
+</section>
+{% endblock %}

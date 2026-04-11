@@ -39,6 +39,11 @@ urlpatterns = [
     path("api/badges/", views.badges_api, name="api_badges"),
     path("api/push/vapid-key/", views.push_vapid_key_api, name="api_push_vapid_key"),
     path("share/<uuid:site_id>/", views.share_view, name="share_site"),
+    path("dashboard/", views.dashboard_view, name="dashboard"),
+    path("districts/", views.districts_list_view, name="districts"),
+    path("districts/<slug:district_slug>/", views.district_detail_view, name="district_detail"),
+    path("api/districts/<slug:district_slug>/stats/", views.district_stats_api, name="api_district_stats"),
+    path("api/export/sites.<str:fmt>/", views.export_sites_view, name="api_export_sites"),
 
     # Authenticated JSON API
     path("api/preferences/", views.preferences_api, name="api_preferences"),

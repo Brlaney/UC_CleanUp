@@ -42,7 +42,10 @@
     subdomains: "abcd",
   }).addTo(map);
 
-  var trashLayer = L.layerGroup().addTo(map);
+  var trashLayer = (typeof L.markerClusterGroup === "function"
+    ? L.markerClusterGroup({ maxClusterRadius: 40, disableClusteringAtZoom: 14 })
+    : L.layerGroup()
+  ).addTo(map);
   var areaLayer = L.layerGroup().addTo(map);
   var eventLayer = L.layerGroup().addTo(map);
   var districtPane = map.createPane("districtPane");
@@ -652,26 +655,37 @@
         }
       });
 
-      // Proofs
-      if (site.proofs && site.proofs.length) {
-        html += '<div class="detail-section"><h4>Proof History</h4><div class="proof-list">';
-        site.proofs.forEach(function (proof) {
-          html += '<div class="proof-card">';
-          html += '<div class="proof-card-top">';
-          if (proof.bags_count) html += '<span class="proof-bags">' + proof.bags_count + ' bags</span>';
-          html += '<span class="proof-meta">' + U.escapeHtml(proof.created_by) + ' &middot; ' + formatDate(proof.created_at) + '</span>';
-          html += '</div>';
-          if (proof.note) html += '<p class="proof-note">' + U.escapeHtml(proof.note) + '</p>';
-          if (proof.photos && proof.photos.length) {
-            html += '<div class="proof-photo-grid">';
-            proof.photos.forEach(function (ph) {
-              html += '<img src="' + U.escapeHtml(ph.url) + '" alt="' + (ph.type || "proof") + ' photo">';
-            });
-            html += '</div>';
-          }
-          html += '</div>';
+      // Site history timeline (Phase 6E)
+      if (site.timeline && site.timeline.length) {
+        var TL_ICONS = { reported: "📍", proof: "📷", cleaned: "🧹", verified: "✅", chronic: "⚠️" };
+        html += '<div class="detail-section"><h4>Site History</h4><div class="site-timeline">';
+        site.timeline.forEach(function (ev) {
+          html += '<div class="timeline-event timeline-event--' + U.escapeHtml(ev.type) + '">';
+          html += '<span class="tl-icon" aria-hidden="true">' + (TL_ICONS[ev.type] || "•") + '</span>';
+          html += '<div class="tl-body">';
+          html += '<span class="tl-label">' + U.escapeHtml(ev.label) + '</span>';
+          html += '<span class="tl-meta">by ' + U.escapeHtml(ev.by) + ' &middot; ' + formatDate(ev.at) + '</span>';
+          html += '</div></div>';
         });
         html += '</div></div>';
+      }
+
+      // Proof notes (bags & notes still shown separately)
+      if (site.proofs && site.proofs.length) {
+        var proofsWithNotes = site.proofs.filter(function (p) { return p.note || p.bags_count; });
+        if (proofsWithNotes.length) {
+          html += '<div class="detail-section"><h4>Cleanup Notes</h4><div class="proof-list">';
+          proofsWithNotes.forEach(function (proof) {
+            html += '<div class="proof-card">';
+            html += '<div class="proof-card-top">';
+            if (proof.bags_count) html += '<span class="proof-bags">' + proof.bags_count + ' bags</span>';
+            html += '<span class="proof-meta">' + U.escapeHtml(proof.created_by) + ' &middot; ' + formatDate(proof.created_at) + '</span>';
+            html += '</div>';
+            if (proof.note) html += '<p class="proof-note">' + U.escapeHtml(proof.note) + '</p>';
+            html += '</div>';
+          });
+          html += '</div></div>';
+        }
       }
 
       // Mark cleaned button

@@ -1,4 +1,5 @@
 import base64
+import csv
 import io
 import json
 from datetime import timedelta
@@ -134,6 +135,71 @@ def _photo_urls_grouped(proofs):
 # Serializers
 # ---------------------------------------------------------------------------
 
+def _build_timeline(site):
+    """Return a chronological list of lifecycle events for the site history timeline."""
+    events = []
+
+    # Reported
+    events.append({
+        "type": "reported",
+        "label": "Reported",
+        "by": site.created_by.username if site.created_by_id else "Anonymous",
+        "at": site.created_at.isoformat(),
+    })
+
+    # Photos added (PROOF_ADDED activity logs) — one entry per unique proof
+    logs = (
+        site.activity_logs
+        .select_related("actor", "proof")
+        .order_by("created_at")
+    )
+    seen_proof_ids = set()
+    for log in logs:
+        if log.activity_type == ActivityLog.ActivityType.PROOF_ADDED and log.proof_id:
+            if log.proof_id not in seen_proof_ids:
+                seen_proof_ids.add(log.proof_id)
+                events.append({
+                    "type": "proof",
+                    "label": "Photos Added",
+                    "by": log.actor.username if log.actor_id else "Anonymous",
+                    "at": log.created_at.isoformat(),
+                })
+
+    # Cleaned
+    if site.cleaned_at:
+        cleaner = None
+        clean_log = logs.filter(activity_type=ActivityLog.ActivityType.TRASH_CLEANED).first()
+        if clean_log and clean_log.actor_id:
+            cleaner = clean_log.actor.username
+        events.append({
+            "type": "cleaned",
+            "label": "Cleaned",
+            "by": cleaner or "Unknown",
+            "at": site.cleaned_at.isoformat(),
+        })
+
+    # Verified
+    if site.verified_at:
+        events.append({
+            "type": "verified",
+            "label": "Verified",
+            "by": site.verified_by.username if site.verified_by_id else "Official",
+            "at": site.verified_at.isoformat(),
+        })
+
+    # Flagged chronic
+    if site.chronic_site:
+        events.append({
+            "type": "chronic",
+            "label": "Flagged Chronic",
+            "by": "System",
+            "at": site.updated_at.isoformat(),
+        })
+
+    events.sort(key=lambda e: e["at"])
+    return events
+
+
 def _compute_trajectory(site):
     """Return improving/stable/worsening/resolved based on proof activity trends."""
     if site.status == TrashSite.Status.CLEANED:
@@ -164,6 +230,7 @@ def _serialize_trash_site(site, user=None):
 
     return {
         "id": str(site.id),
+        "timeline": _build_timeline(site),
         "status": site.status,
         "title": site.title,
         "description": site.description,
@@ -389,7 +456,8 @@ def districts_api(request):
 def trash_site_detail_api(request, site_id):
     site = get_object_or_404(
         TrashSite.objects.select_related("created_by", "claimed_by", "verified_by", "team").prefetch_related(
-            "proofs__photos", "proofs__created_by"
+            "proofs__photos", "proofs__created_by",
+            "activity_logs__actor", "activity_logs__proof",
         ),
         id=site_id,
     )
@@ -1314,3 +1382,248 @@ def event_flyer_view(request, event_id):
         "rsvp_url": rsvp_url,
         "map_thumb": map_thumb,
     })
+
+
+# ---------------------------------------------------------------------------
+# Phase 6A — Coordinator Dashboard
+# ---------------------------------------------------------------------------
+
+@login_required
+def dashboard_view(request):
+    if not can_verify_cleanup(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Dashboard restricted to coordinators and admins.")
+
+    now = timezone.now()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Summary cards
+    pending_count = TrashSite.objects.filter(status=TrashSite.Status.PENDING).count()
+    in_progress_count = TrashSite.objects.filter(status=TrashSite.Status.IN_PROGRESS).count()
+    awaiting_verification = TrashSite.objects.filter(
+        status=TrashSite.Status.CLEANED, verified_at__isnull=True
+    ).count()
+    chronic_count = TrashSite.objects.filter(chronic_site=True).count()
+    bags_this_month = (
+        CleanupProof.objects.filter(created_at__gte=month_start)
+        .aggregate(total=Sum("bags_count"))["total"] or 0
+    )
+    new_volunteers_this_month = (
+        User.objects.filter(date_joined__gte=month_start).count()
+    )
+
+    # Pending verifications (CLEANED + not verified)
+    pending_verifications = (
+        TrashSite.objects
+        .filter(status=TrashSite.Status.CLEANED, verified_at__isnull=True)
+        .select_related("created_by", "district")
+        .order_by("cleaned_at")[:50]
+    )
+
+    # Chronic sites
+    chronic_sites = (
+        TrashSite.objects
+        .filter(chronic_site=True)
+        .select_related("created_by", "district")
+        .order_by("created_at")[:50]
+    )
+
+    # Per-district breakdown
+    districts = District.objects.filter(active=True).order_by("name")
+    district_breakdown = []
+    for d in districts:
+        qs = d.trash_sites
+        district_breakdown.append({
+            "district": d,
+            "pending": qs.filter(status=TrashSite.Status.PENDING).count(),
+            "cleaned": qs.filter(status=TrashSite.Status.CLEANED).count(),
+            "chronic": qs.filter(chronic_site=True).count(),
+            "total": qs.count(),
+        })
+
+    # Recent ActivityLog
+    recent_activity = (
+        ActivityLog.objects
+        .select_related("actor", "trash_site")
+        .order_by("-created_at")[:20]
+    )
+
+    return render(request, "geoapp/dashboard.html", {
+        "pending_count": pending_count,
+        "in_progress_count": in_progress_count,
+        "awaiting_verification": awaiting_verification,
+        "chronic_count": chronic_count,
+        "bags_this_month": bags_this_month,
+        "new_volunteers_this_month": new_volunteers_this_month,
+        "pending_verifications": pending_verifications,
+        "chronic_sites": chronic_sites,
+        "district_breakdown": district_breakdown,
+        "recent_activity": recent_activity,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Phase 6B — Data Export
+# ---------------------------------------------------------------------------
+
+@login_required
+def export_sites_view(request, fmt):
+    if fmt not in ("csv", "geojson"):
+        from django.http import Http404
+        raise Http404
+
+    # Auth-based queryset scoping
+    status_param = request.GET.get("status", "")
+    district_slug = request.GET.get("district", "").strip()
+    since_raw = request.GET.get("since", "").strip()
+
+    qs = TrashSite.objects.select_related("created_by", "district", "verified_by")
+
+    if can_verify_cleanup(request.user):
+        # COORDINATOR/ADMIN: can export all statuses
+        statuses = _status_choices(status_param) if status_param else []
+        if statuses:
+            qs = qs.filter(status__in=statuses)
+    else:
+        # Regular auth users: own reports only
+        qs = qs.filter(created_by=request.user)
+        statuses = _status_choices(status_param) if status_param else []
+        if statuses:
+            qs = qs.filter(status__in=statuses)
+
+    if district_slug:
+        qs = qs.filter(district__slug=district_slug)
+
+    if since_raw:
+        from django.utils.dateparse import parse_date
+        since = parse_date(since_raw)
+        if since:
+            qs = qs.filter(created_at__date__gte=since)
+
+    qs = qs.prefetch_related("proofs").order_by("-created_at")
+
+    if fmt == "csv":
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="uc-cleanup-sites.csv"'
+        writer = csv.writer(response)
+        writer.writerow([
+            "id", "title", "status", "severity", "hazard", "district",
+            "lat", "lng", "bags_total", "created_at", "cleaned_at", "verified", "chronic",
+        ])
+        for site in qs:
+            bags = sum(p.bags_count for p in site.proofs.all())
+            writer.writerow([
+                str(site.id),
+                site.title,
+                site.status,
+                site.severity,
+                "yes" if site.hazard_flag else "no",
+                site.district.slug if site.district_id else "",
+                site.location.y,
+                site.location.x,
+                bags,
+                site.created_at.isoformat(),
+                site.cleaned_at.isoformat() if site.cleaned_at else "",
+                "yes" if site.verified_at else "no",
+                "yes" if site.chronic_site else "no",
+            ])
+        return response
+
+    # GeoJSON
+    features = []
+    for site in qs:
+        bags = sum(p.bags_count for p in site.proofs.all())
+        features.append({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [site.location.x, site.location.y]},
+            "properties": {
+                "id": str(site.id),
+                "title": site.title,
+                "status": site.status,
+                "severity": site.severity,
+                "hazard": site.hazard_flag,
+                "district": site.district.slug if site.district_id else None,
+                "bags_total": bags,
+                "created_at": site.created_at.isoformat(),
+                "cleaned_at": site.cleaned_at.isoformat() if site.cleaned_at else None,
+                "verified": bool(site.verified_at),
+                "chronic": site.chronic_site,
+            },
+        })
+    payload = json.dumps({"type": "FeatureCollection", "features": features}, indent=2)
+    response = HttpResponse(payload, content_type="application/geo+json")
+    response["Content-Disposition"] = 'attachment; filename="uc-cleanup-sites.geojson"'
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Phase 6C — District Stats Pages
+# ---------------------------------------------------------------------------
+
+@ratelimit(key="ip", rate="60/m", method="GET", block=True)
+@require_GET
+def district_stats_api(request, district_slug):
+    district = get_object_or_404(District, slug=district_slug, active=True)
+    qs = district.trash_sites
+
+    site_count = qs.count()
+    cleaned_count = qs.filter(status=TrashSite.Status.CLEANED).count()
+    pending_count = qs.filter(status__in=[TrashSite.Status.PENDING, TrashSite.Status.IN_PROGRESS]).count()
+    chronic_count = qs.filter(chronic_site=True).count()
+    bags_total = (
+        CleanupProof.objects.filter(trash_site__district=district)
+        .aggregate(total=Sum("bags_count"))["total"] or 0
+    )
+
+    # Top 3 cleanup submitters in this district
+    top_vols_qs = (
+        CleanupProof.objects
+        .filter(trash_site__district=district, created_by__isnull=False)
+        .values("created_by__username", "created_by__profile__public_profile")
+        .annotate(count=Count("id"))
+        .order_by("-count")[:3]
+    )
+    top_volunteers = []
+    for row in top_vols_qs:
+        pub = row.get("created_by__profile__public_profile", False)
+        top_volunteers.append({
+            "username": row["created_by__username"] if pub else "Anonymous",
+            "count": row["count"],
+        })
+
+    # Recent 5 cleanups
+    recent_cleanups_qs = (
+        qs.filter(status=TrashSite.Status.CLEANED)
+        .select_related("created_by")
+        .order_by("-cleaned_at")[:5]
+    )
+    recent_cleanups = [
+        {
+            "id": str(s.id),
+            "title": s.title or "Trash Site",
+            "cleaned_at": s.cleaned_at.isoformat() if s.cleaned_at else None,
+            "cleaned_by": s.created_by.username if s.created_by_id else "Anonymous",
+        }
+        for s in recent_cleanups_qs
+    ]
+
+    return JsonResponse({
+        "slug": district.slug,
+        "name": district.name,
+        "site_count": site_count,
+        "cleaned_count": cleaned_count,
+        "pending_count": pending_count,
+        "chronic_count": chronic_count,
+        "bags_total": bags_total,
+        "top_volunteers": top_volunteers,
+        "recent_cleanups": recent_cleanups,
+    })
+
+
+def districts_list_view(request):
+    return render(request, "geoapp/districts.html")
+
+
+def district_detail_view(request, district_slug):
+    district = get_object_or_404(District, slug=district_slug, active=True)
+    return render(request, "geoapp/district_detail.html", {"district": district})

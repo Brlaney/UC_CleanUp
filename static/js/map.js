@@ -540,10 +540,10 @@
         var p = f.properties;
         var coords = f.geometry.coordinates;
         var marker = L.circleMarker([coords[1], coords[0]], {
-          radius: 8,
+          radius: p.chronic ? 10 : 8,
           fillColor: statusColor(p.status),
-          color: "#fff",
-          weight: 2,
+          color: p.chronic ? "#991b1b" : "#fff",
+          weight: p.chronic ? 3 : 2,
           fillOpacity: 0.9,
         });
 
@@ -611,10 +611,17 @@
       html += renderBadge(titleCase(site.status), tokenClass(site.status));
       if (site.severity) html += renderBadge(titleCase(site.severity), tokenClass(site.severity));
       if (site.hazard_flag) html += renderBadge("Hazard", "hazard");
+      if (site.chronic) html += '<span class="chronic-badge">Chronic</span>';
       html += '</div></div>';
 
       if (site.verified_at) {
         html += renderBadge("Verified \u2713", "verified");
+      }
+
+      // Trajectory signal (Phase 5D)
+      if (site.trajectory && site.trajectory !== "resolved" && site.trajectory !== "stable") {
+        var trajLabel = site.trajectory === "worsening" ? "\u2197 Getting worse" : "\u2198 Improving";
+        html += '<span class="trajectory-badge trajectory-badge--' + site.trajectory + '">' + trajLabel + '</span> ';
       }
       html += '<dl class="detail-meta-grid">';
       html += renderMeta("Reported by", site.created_by);
@@ -1066,6 +1073,11 @@
         html += '</div>';
       }
 
+      // Get Flyer button (Phase 5I)
+      html += '<div class="detail-action-row">';
+      html += '<a class="btn btn-subtle btn-compact" href="/api/events/' + ev.id + '/flyer/" target="_blank" rel="noopener">&#128203; Get Flyer</a>';
+      html += '</div>';
+
       html += '</div>';
 
       function attachEventHandlers(container) {
@@ -1357,6 +1369,123 @@
       });
     });
   }
+
+  /* ---- Address search (Phase 5A — Nominatim) ---- */
+  (function () {
+    var searchInput = document.getElementById("search-input");
+    var searchResults = document.getElementById("search-results");
+    if (!searchInput || !searchResults) return;
+
+    // Putnam County + neighbors bounding box [west,south,east,north]
+    var VIEWBOX = "-86.2,36.0,-85.2,36.7";
+    var searchTimer = null;
+    var focusedIndex = -1;
+
+    function clearResults() {
+      searchResults.innerHTML = "";
+      searchResults.classList.add("hidden");
+      searchInput.setAttribute("aria-expanded", "false");
+      focusedIndex = -1;
+    }
+
+    function renderResults(results) {
+      searchResults.innerHTML = "";
+      if (!results.length) {
+        clearResults();
+        return;
+      }
+      results.forEach(function (r, i) {
+        var li = document.createElement("li");
+        li.className = "search-result-item";
+        li.setAttribute("role", "option");
+        li.setAttribute("id", "search-result-" + i);
+        li.textContent = r.display_name;
+        li.addEventListener("mousedown", function (e) {
+          e.preventDefault(); // prevent input blur before click
+          selectResult(r);
+        });
+        searchResults.appendChild(li);
+      });
+      searchResults.classList.remove("hidden");
+      searchInput.setAttribute("aria-expanded", "true");
+      focusedIndex = -1;
+    }
+
+    function setFocused(index) {
+      var items = searchResults.querySelectorAll(".search-result-item");
+      items.forEach(function (el, i) {
+        el.classList.toggle("is-focused", i === index);
+      });
+      focusedIndex = index;
+      if (items[index]) {
+        searchInput.setAttribute("aria-activedescendant", "search-result-" + index);
+      }
+    }
+
+    function selectResult(r) {
+      var lat = parseFloat(r.lat);
+      var lng = parseFloat(r.lon);
+      map.flyTo([lat, lng], 16);
+      searchInput.value = r.display_name;
+      clearResults();
+
+      // Temporary pin that disappears on next map interaction
+      var tempPin = L.circleMarker([lat, lng], {
+        radius: 10, fillColor: "#0d5e97", color: "#fff", weight: 3, fillOpacity: 0.85,
+      }).addTo(map);
+      tempPin.bindPopup(r.display_name || "Search result").openPopup();
+      map.once("movestart", function () {
+        if (tempPin) map.removeLayer(tempPin);
+      });
+    }
+
+    function doSearch(query) {
+      var url = "https://nominatim.openstreetmap.org/search"
+        + "?q=" + encodeURIComponent(query)
+        + "&countrycodes=us"
+        + "&viewbox=" + VIEWBOX
+        + "&bounded=0"
+        + "&format=json"
+        + "&limit=5"
+        + "&addressdetails=0";
+
+      fetch(url, {
+        headers: { "Accept-Language": "en", "User-Agent": "UC-CleanUp/1.0 (uc-cleanup.com)" },
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        renderResults(data || []);
+      }).catch(function () { clearResults(); });
+    }
+
+    searchInput.addEventListener("input", function () {
+      clearTimeout(searchTimer);
+      var q = searchInput.value.trim();
+      if (q.length < 3) { clearResults(); return; }
+      searchTimer = setTimeout(function () { doSearch(q); }, 400);
+    });
+
+    searchInput.addEventListener("keydown", function (e) {
+      var items = searchResults.querySelectorAll(".search-result-item");
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocused(Math.min(focusedIndex + 1, items.length - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocused(Math.max(focusedIndex - 1, 0));
+      } else if (e.key === "Enter") {
+        if (focusedIndex >= 0 && items[focusedIndex]) {
+          items[focusedIndex].dispatchEvent(new MouseEvent("mousedown"));
+        }
+        e.preventDefault();
+      } else if (e.key === "Escape") {
+        clearResults();
+      }
+    });
+
+    searchInput.addEventListener("blur", function () {
+      // Delay so mousedown on result fires first
+      setTimeout(clearResults, 150);
+    });
+  }());
 
   /* ---- Init ---- */
   setMode("report");

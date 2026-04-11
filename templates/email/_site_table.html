@@ -1,0 +1,30 @@
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Title</th>
+      <th>Status</th>
+      <th>Severity</th>
+      <th>District</th>
+      <th>Reported</th>
+      <th>Days Open</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for site in sites %}
+    <tr>
+      <td>{{ forloop.counter }}</td>
+      <td><a href="https://uc-cleanup.com/share/{{ site.id }}/">{{ site.title|default:"Unnamed" }}</a></td>
+      <td>
+        <span class="badge {% if site.status == 'PENDING' %}badge-pending{% else %}badge-in-progress{% endif %}">
+          {{ site.get_status_display }}
+        </span>
+      </td>
+      <td>{{ site.get_severity_display|default:"—" }}</td>
+      <td>{{ site.district.name|default:"Unknown" }}</td>
+      <td>{{ site.created_at|date:"M j, Y" }}</td>
+      <td>{{ site.created_at|timesince|truncatewords:2 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

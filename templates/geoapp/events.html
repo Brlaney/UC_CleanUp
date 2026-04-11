@@ -87,8 +87,9 @@
       html += '</div>';
       if (ev.description) html += '<p class="event-desc">' + escHtml(ev.description) + '</p>';
       if (ev.status === "SCHEDULED") {
-        html += '<div style="margin-top:0.85rem">';
+        html += '<div style="margin-top:0.85rem;display:flex;gap:0.5rem;flex-wrap:wrap">';
         html += '<a class="btn btn-primary btn-compact" href="/?focus_event=' + ev.id + '">View on Map</a>';
+        html += '<a class="btn btn-subtle btn-compact" href="/api/events/' + ev.id + '/flyer/" target="_blank" rel="noopener">&#128203; Get Flyer</a>';
         html += '</div>';
       }
       html += '</div>';

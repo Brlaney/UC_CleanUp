@@ -37,6 +37,7 @@
                 <a class="topnav-link{% if request.resolver_match.url_name == 'leaderboard' %} is-active{% endif %}" href="{% url 'leaderboard' %}"{% if request.resolver_match.url_name == 'leaderboard' %} aria-current="page"{% endif %}>Leaderboard</a>
                 <a class="topnav-link{% if request.resolver_match.url_name == 'events' %} is-active{% endif %}" href="{% url 'events' %}"{% if request.resolver_match.url_name == 'events' %} aria-current="page"{% endif %}>Events</a>
                 <a class="topnav-link{% if request.resolver_match.url_name in 'team,teams' %} is-active{% endif %}" href="{% url 'teams' %}">Teams</a>
+                <a class="topnav-link{% if request.resolver_match.url_name == 'challenges' %} is-active{% endif %}" href="{% url 'challenges' %}">Challenges</a>
                 {% if user.is_authenticated and user.is_staff or user.is_superuser %}
                     <a class="topnav-link" href="{% url 'admin:index' %}">Admin</a>
                 {% endif %}

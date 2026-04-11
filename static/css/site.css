@@ -1122,3 +1122,52 @@ button:disabled,
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Badge chips (profile page) ---- */
+.badge-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.badge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.65rem;
+  background: rgba(14, 94, 168, 0.08);
+  border: 1px solid rgba(14, 94, 168, 0.18);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-btn-primary-bg);
+}
+.badge-chip-icon { font-size: 1rem; line-height: 1; }
+
+/* ---- Trajectory badge (detail panel) ---- */
+.trajectory-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.trajectory-badge--worsening { background: #fde8dc; color: #9b3a12; }
+.trajectory-badge--improving { background: #dcfce7; color: #166534; }
+.trajectory-badge--stable { background: var(--color-surface-soft); color: var(--color-text-muted); }
+.chronic-badge {
+  display: inline-block;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #fee2e2;
+  color: #991b1b;
+}
+

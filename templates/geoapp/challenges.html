@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Challenges — UC CleanUp{% endblock %}
+
+{% block extra_head %}
+<style>
+  .challenges-wrap { max-width: 760px; margin: 0 auto; padding: 2rem 1rem; }
+  .challenge-card { background: rgba(255,255,255,0.94); border: 1px solid var(--color-border-soft); border-left: 4px solid var(--color-btn-primary-bg); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 1.5rem; margin-bottom: 1.25rem; }
+  .challenge-name { font-size: 1.15rem; font-weight: 700; margin: 0 0 0.25rem; }
+  .challenge-dates { font-size: 0.85rem; color: var(--color-text-muted); margin: 0 0 0.75rem; }
+  .challenge-desc { color: var(--color-text-secondary); font-size: 0.92rem; margin-bottom: 1rem; }
+  .challenge-stats { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .challenge-stat { text-align: center; }
+  .challenge-stat-num { display: block; font-size: 1.4rem; font-weight: 800; color: var(--color-btn-primary-bg); }
+  .challenge-stat-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted); font-weight: 700; }
+  .progress-bar-wrap { background: var(--color-surface-soft); border-radius: 999px; height: 12px; overflow: hidden; margin-bottom: 0.4rem; }
+  .progress-bar-fill { background: var(--color-btn-primary-bg); height: 100%; border-radius: 999px; transition: width 0.8s cubic-bezier(0.25,0.46,0.45,0.94); }
+  .progress-label { font-size: 0.82rem; color: var(--color-text-muted); }
+  .challenge-status-badge { display: inline-block; padding: 0.18rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+  .challenge-status-badge--active { background: rgba(31,148,79,0.12); color: #1f944f; }
+  .challenge-status-badge--upcoming { background: rgba(14,94,168,0.10); color: var(--color-btn-primary-bg); }
+  .challenges-empty { padding: 3rem 1rem; text-align: center; color: var(--color-text-muted); }
+  .challenges-loading { padding: 2rem; text-align: center; color: var(--color-text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="challenges-wrap">
+  <h1>Community Challenges</h1>
+  <p>Seasonal cleanup campaigns for the Upper Cumberland. Rally your district and hit the goal.</p>
+
+  <div id="challenges-content">
+    <div class="challenges-loading">Loading&hellip;</div>
+  </div>
+
+  <p style="margin-top:2rem">
+    <a class="btn btn-subtle btn-compact" href="{% url 'map' %}">&larr; Back to Map</a>
+    <a class="btn btn-subtle btn-compact" href="{% url 'leaderboard' %}">Leaderboard &rarr;</a>
+  </p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var content = document.getElementById("challenges-content");
+
+  function escHtml(s) {
+    return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function formatDate(iso) {
+    var d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  fetch("/api/challenges/").then(function(r) { return r.json(); }).then(function(data) {
+    var challenges = data.results || [];
+    if (!challenges.length) {
+      content.innerHTML = '<div class="challenges-empty">No active challenges right now. Check back soon!</div>';
+      return;
+    }
+    var html = "";
+    challenges.forEach(function(c) {
+      var statusClass = c.status === "ACTIVE" ? "challenge-status-badge--active" : "challenge-status-badge--upcoming";
+      var pct = c.progress_pct || 0;
+      html += '<div class="challenge-card">';
+      html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap">';
+      html += '<div>';
+      html += '<h2 class="challenge-name">' + escHtml(c.name) + '</h2>';
+      html += '<p class="challenge-dates">' + formatDate(c.start_date) + ' &ndash; ' + formatDate(c.end_date) + '</p>';
+      if (c.description) html += '<p class="challenge-desc">' + escHtml(c.description) + '</p>';
+      html += '</div>';
+      html += '<span class="challenge-status-badge ' + statusClass + '">' + escHtml(c.status) + '</span>';
+      html += '</div>';
+      html += '<div class="challenge-stats">';
+      if (c.bag_goal) {
+        html += '<div class="challenge-stat"><span class="challenge-stat-num">' + c.bags_collected.toLocaleString() + ' / ' + c.bag_goal.toLocaleString() + '</span><span class="challenge-stat-label">Bags Goal</span></div>';
+      } else {
+        html += '<div class="challenge-stat"><span class="challenge-stat-num">' + c.bags_collected.toLocaleString() + '</span><span class="challenge-stat-label">Bags Collected</span></div>';
+      }
+      html += '<div class="challenge-stat"><span class="challenge-stat-num">' + c.sites_cleaned + '</span><span class="challenge-stat-label">Sites Cleaned</span></div>';
+      html += '</div>';
+      if (c.bag_goal) {
+        html += '<div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:' + pct + '%"></div></div>';
+        html += '<p class="progress-label">' + pct + '% of goal reached</p>';
+      }
+      html += '</div>';
+    });
+    content.innerHTML = html;
+  }).catch(function() {
+    content.innerHTML = '<div class="challenges-empty">Unable to load challenges.</div>';
+  });
+}());
+</script>
+{% endblock %}

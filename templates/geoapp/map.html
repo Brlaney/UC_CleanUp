@@ -23,6 +23,14 @@
             </div>
         </div>
 
+        <!-- Address search -->
+        <div class="map-search" id="map-search" role="search" aria-label="Search address">
+            <input type="search" id="search-input" placeholder="Search address or place&hellip;" autocomplete="off"
+                   aria-label="Search address or place" aria-autocomplete="list" aria-controls="search-results"
+                   aria-expanded="false">
+            <ul class="search-results hidden" id="search-results" role="listbox" aria-label="Search suggestions"></ul>
+        </div>
+
         <!-- Impact bar -->
         <div class="impact-bar" id="impact-bar" aria-label="Community impact">
             <div class="impact-stat">
@@ -306,6 +314,8 @@
                 trashUpdateBase: "/api/trash-sites/",
                 eventsBase: "/api/events/",
                 teamsBase: "/api/teams/",
+                challengesBase: "/api/challenges/",
+                badgesBase: "/api/badges/",
                 pushVapidKey: "{% url 'api_push_vapid_key' %}",
                 pushSubscribe: "{% url 'api_push_subscribe' %}",
                 pushUnsubscribe: "{% url 'api_push_unsubscribe' %}",

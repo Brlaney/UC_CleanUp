@@ -28,9 +28,24 @@
         <p id="leaderboard-pref-status" style="min-height:1.2rem;font-size:0.88rem;color:var(--color-text-muted);margin:0.4rem 0 0;"></p>
     </div>
 
+    {% if user_badges %}
+    <div class="profile-badges">
+        <h2 style="font-size:1rem;margin:1.5rem 0 0.6rem;">Your Badges</h2>
+        <div class="badge-chip-row">
+            {% for ub in user_badges %}
+            <div class="badge-chip" title="{{ ub.badge.description }}">
+                <span class="badge-chip-icon">{{ ub.badge.icon }}</span>
+                <span class="badge-chip-name">{{ ub.badge.name }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <div class="profile-actions">
         <a class="btn btn-primary" href="{% url 'map' %}">Back to Map</a>
         <a class="btn btn-subtle btn-compact" href="{% url 'leaderboard' %}">View Leaderboard</a>
+        <a class="btn btn-subtle btn-compact" href="{% url 'challenges' %}">Challenges</a>
     </div>
 </section>
 {% endblock %}

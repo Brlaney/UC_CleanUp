@@ -1,3 +1,5 @@
+import base64
+import io
 import json
 from datetime import timedelta
 
@@ -11,12 +13,13 @@ from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.template.loader import render_to_string
 from django.utils.dateparse import parse_datetime
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.contrib.gis.geos import GEOSGeometry, MultiPolygon, Point, Polygon
 from django.db import connection
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.http import require_GET, require_http_methods
 
 User = get_user_model()
@@ -25,7 +28,11 @@ from django_ratelimit.decorators import ratelimit
 
 from django.utils.text import slugify
 
-from .models import ActivityLog, CleanupEvent, CleanupProof, District, EventRSVP, FeedbackEntry, Photo, Profile, PushSubscription, Team, TeamMembership, TrashSite, UserMapPreference
+from .models import (
+    ActivityLog, Badge, Challenge, CleanupEvent, CleanupProof, District,
+    EventRSVP, FeedbackEntry, Photo, Profile, PushSubscription,
+    ScheduledJobLog, Team, TeamMembership, TrashSite, UserBadge, UserMapPreference,
+)
 from .permissions import can_edit_trash_site, can_mark_cleaned, can_set_invalid_status, can_verify_cleanup, is_admin
 from .services import assign_district, log_activity, notify_nearby_subscribers
 from .validators import validate_photo_uploads
@@ -127,6 +134,28 @@ def _photo_urls_grouped(proofs):
 # Serializers
 # ---------------------------------------------------------------------------
 
+def _compute_trajectory(site):
+    """Return improving/stable/worsening/resolved based on proof activity trends."""
+    if site.status == TrashSite.Status.CLEANED:
+        return "resolved"
+    now = timezone.now()
+    recent = site.proofs.filter(created_at__gte=now - timedelta(days=30)).count()
+    prior_raw = site.proofs.filter(
+        created_at__gte=now - timedelta(days=90),
+        created_at__lt=now - timedelta(days=30),
+    ).count()
+    prior = prior_raw / 2.0  # normalize to 30-day equivalent
+    if recent == 0 and prior == 0:
+        return "stable"
+    if prior == 0:
+        return "worsening" if recent > 0 else "stable"
+    if recent > prior * 1.25:
+        return "worsening"
+    if recent < prior * 0.75:
+        return "improving"
+    return "stable"
+
+
 def _serialize_trash_site(site, user=None):
     proofs_qs = site.proofs.prefetch_related("photos", "created_by").all()
     area_geojson = None
@@ -140,6 +169,8 @@ def _serialize_trash_site(site, user=None):
         "description": site.description,
         "severity": site.severity,
         "hazard_flag": site.hazard_flag,
+        "chronic": site.chronic_site,
+        "trajectory": _compute_trajectory(site),
         "created_by": site.created_by.username if site.created_by_id else "Anonymous",
         "claimed_by": site.claimed_by.username if site.claimed_by_id else None,
         "created_at": site.created_at.isoformat(),
@@ -184,6 +215,7 @@ def _site_to_feature(site, user=None):
         "description": site.description,
         "severity": site.severity,
         "hazard_flag": site.hazard_flag,
+        "chronic": site.chronic_site,
         "cleaned_at": site.cleaned_at.isoformat() if site.cleaned_at else None,
         "created_at": site.created_at.isoformat(),
         "has_area": bool(site.area),
@@ -213,10 +245,16 @@ def profile_view(request):
     reports_count = TrashSite.objects.filter(created_by=request.user).count()
     cleanups_count = CleanupProof.objects.filter(created_by=request.user).count()
     profile, _ = Profile.objects.get_or_create(user=request.user)
+    user_badges = (
+        UserBadge.objects.filter(user=request.user)
+        .select_related("badge")
+        .order_by("awarded_at")
+    )
     return render(request, "geoapp/profile.html", {
         "reports_count": reports_count,
         "cleanups_count": cleanups_count,
         "public_profile": profile.public_profile,
+        "user_badges": user_badges,
     })
 
 
@@ -1129,3 +1167,150 @@ def service_worker_view(request):
     resp["Service-Worker-Allowed"] = "/"
     resp["Cache-Control"] = "no-cache, no-store, must-revalidate"
     return resp
+
+
+# ---------------------------------------------------------------------------
+# Phase 5B — Cron health check
+# ---------------------------------------------------------------------------
+
+@require_GET
+def healthz_cron(request):
+    jobs = ScheduledJobLog.objects.all()
+    data = {}
+    for job in jobs:
+        data[job.job_name] = {
+            "last_run_at": job.last_run_at.isoformat() if job.last_run_at else None,
+            "last_success_at": job.last_success_at.isoformat() if job.last_success_at else None,
+            "status": job.last_status,
+            "last_error": job.last_error or None,
+        }
+    return JsonResponse({"jobs": data})
+
+
+# ---------------------------------------------------------------------------
+# Phase 5E — Badges
+# ---------------------------------------------------------------------------
+
+@require_GET
+def badges_api(request):
+    """Public list of all available badges with user earn status."""
+    user = request.user if request.user.is_authenticated else None
+    earned_slugs = set()
+    if user:
+        earned_slugs = set(
+            UserBadge.objects.filter(user=user).values_list("badge__slug", flat=True)
+        )
+    badges = Badge.objects.all()
+    return JsonResponse({
+        "results": [
+            {
+                "slug": b.slug,
+                "name": b.name,
+                "description": b.description,
+                "icon": b.icon,
+                "earned": b.slug in earned_slugs,
+            }
+            for b in badges
+        ]
+    })
+
+
+# ---------------------------------------------------------------------------
+# Phase 5F — Seasonal challenges
+# ---------------------------------------------------------------------------
+
+def _serialize_challenge(challenge):
+    from django.db.models import Sum as DSum
+    bags = CleanupProof.objects.filter(
+        created_at__date__gte=challenge.start_date,
+        created_at__date__lte=challenge.end_date,
+    ).aggregate(total=DSum("bags_count"))["total"] or 0
+    sites = TrashSite.objects.filter(
+        created_at__date__gte=challenge.start_date,
+        created_at__date__lte=challenge.end_date,
+        status=TrashSite.Status.CLEANED,
+    ).count()
+    progress = min(100, round(bags / challenge.bag_goal * 100)) if challenge.bag_goal else 0
+    return {
+        "id": str(challenge.id),
+        "name": challenge.name,
+        "slug": challenge.slug,
+        "description": challenge.description,
+        "start_date": challenge.start_date.isoformat(),
+        "end_date": challenge.end_date.isoformat(),
+        "bag_goal": challenge.bag_goal,
+        "bags_collected": bags,
+        "sites_cleaned": sites,
+        "progress_pct": progress,
+        "status": challenge.status,
+    }
+
+
+@ratelimit(key="ip", rate="60/m", method="GET", block=True)
+@require_GET
+def challenges_list_api(request):
+    qs = Challenge.objects.exclude(status=Challenge.Status.COMPLETED)
+    return JsonResponse({"results": [_serialize_challenge(c) for c in qs]})
+
+
+@ratelimit(key="ip", rate="60/m", method="GET", block=True)
+@require_GET
+def challenge_detail_api(request, challenge_slug):
+    challenge = get_object_or_404(Challenge, slug=challenge_slug)
+    return JsonResponse(_serialize_challenge(challenge))
+
+
+def challenges_view(request):
+    return render(request, "geoapp/challenges.html")
+
+
+# ---------------------------------------------------------------------------
+# Phase 5H — Embeddable map widget
+# ---------------------------------------------------------------------------
+
+@xframe_options_exempt
+def embed_map_view(request):
+    return render(request, "geoapp/embed.html")
+
+
+# ---------------------------------------------------------------------------
+# Phase 5I — Event flyer with QR code
+# ---------------------------------------------------------------------------
+
+@require_GET
+def event_flyer_view(request, event_id):
+    event = get_object_or_404(CleanupEvent, id=event_id)
+    rsvp_url = request.build_absolute_uri(f"/events/")
+    fmt = request.GET.get("format", "html")
+
+    try:
+        import qrcode
+        qr = qrcode.QRCode(version=1, box_size=6, border=2)
+        qr.add_data(rsvp_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        qr_b64 = base64.b64encode(buf.getvalue()).decode()
+        qr_data_url = f"data:image/png;base64,{qr_b64}"
+    except ImportError:
+        qr_data_url = None
+
+    if fmt == "png" and qr_data_url:
+        img_bytes = base64.b64decode(qr_b64)
+        return HttpResponse(img_bytes, content_type="image/png")
+
+    lat = event.location.y
+    lng = event.location.x
+    map_thumb = (
+        f"https://staticmap.openstreetmap.de/staticmap.php"
+        f"?center={lat},{lng}&zoom=14&size=400x200&maptype=mapnik"
+        f"&markers={lat},{lng},red-pushpin"
+    )
+
+    return render(request, "geoapp/event_flyer.html", {
+        "event": event,
+        "qr_data_url": qr_data_url,
+        "rsvp_url": rsvp_url,
+        "map_thumb": map_thumb,
+    })

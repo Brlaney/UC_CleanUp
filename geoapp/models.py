@@ -103,6 +103,7 @@ class TrashSite(models.Model):
     verification_note = models.CharField(max_length=500, blank=True)
     work_order = models.CharField(max_length=100, blank=True)
     team = models.ForeignKey("Team", on_delete=models.SET_NULL, null=True, blank=True, related_name="trash_sites")
+    chronic_site = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -337,6 +338,72 @@ class PushSubscription(models.Model):
 
     def __str__(self):
         return f"PushSub {self.id}"
+
+
+class ScheduledJobLog(models.Model):
+    """Tracks the last run status of each scheduled management command."""
+    job_name = models.CharField(max_length=100, unique=True, db_index=True)
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    last_success_at = models.DateTimeField(null=True, blank=True)
+    last_status = models.CharField(max_length=20, default="never")  # "ok" | "error" | "never"
+    last_error = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.job_name}: {self.last_status}"
+
+
+class Badge(models.Model):
+    slug = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+    description = models.CharField(max_length=255)
+    icon = models.CharField(max_length=50)  # emoji or short label
+
+    class Meta:
+        ordering = ["slug"]
+
+    def __str__(self):
+        return self.name
+
+
+class UserBadge(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="badges"
+    )
+    badge = models.ForeignKey(Badge, on_delete=models.PROTECT, related_name="user_badges")
+    awarded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["awarded_at"]
+        unique_together = [["user", "badge"]]
+
+    def __str__(self):
+        return f"{self.user.username} — {self.badge.name}"
+
+
+class Challenge(models.Model):
+    class Status(models.TextChoices):
+        UPCOMING = "UPCOMING", "Upcoming"
+        ACTIVE = "ACTIVE", "Active"
+        COMPLETED = "COMPLETED", "Completed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    start_date = models.DateField(db_index=True)
+    end_date = models.DateField(db_index=True)
+    bag_goal = models.PositiveIntegerField(default=0)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.UPCOMING, db_index=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return self.name
 
 
 class IPBan(models.Model):

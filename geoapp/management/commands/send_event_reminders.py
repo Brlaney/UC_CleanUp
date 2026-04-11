@@ -7,12 +7,23 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 
 from geoapp.models import CleanupEvent
+from geoapp.services import record_job_run
+
+JOB_NAME = "send_event_reminders"
 
 
 class Command(BaseCommand):
     help = "Send reminder emails to RSVP'd attendees for events happening in the next 18–30 hours."
 
     def handle(self, *args, **options):
+        try:
+            self._run()
+            record_job_run(JOB_NAME, success=True)
+        except Exception as exc:
+            record_job_run(JOB_NAME, success=False, error=str(exc))
+            raise
+
+    def _run(self):
         now = timezone.now()
         window_start = now + timedelta(hours=18)
         window_end = now + timedelta(hours=30)

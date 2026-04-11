@@ -6,6 +6,38 @@ Interactive web map for reporting trash and organizing cleanup efforts in the Up
 
 ---
 
+## Screenshots
+
+<table>
+<tr>
+<td><img src="images/Demo_1.png" alt="Report mode with site detail" width="420"></td>
+<td><img src="images/Sample_1.png" alt="Sample report view" width="420"></td>
+<td><img src="images/Sample_2.png" alt="Sample cleanup view" width="420"></td>
+</tr>
+<tr>
+<td><img src="images/Demo_2.png" alt="Completed cleanups page" width="420"></td>
+<td><img src="images/Demo_3.png" alt="District 3 boundary with site detail" width="420"></td>
+<td><img src="images/Demo_4.png" alt="Cleanup mode draw area" width="420"></td>
+</tr>
+</table>
+
+## Mobile
+
+<table>
+<tr>
+<td><img src="images/samples/sample_1.PNG" alt="Mobile — map view" width="280"></td>
+<td><img src="images/samples/sample_2.PNG" alt="Mobile — report panel" width="280"></td>
+<td><img src="images/samples/sample_3.PNG" alt="Mobile — site detail" width="280"></td>
+</tr>
+<tr>
+<td><img src="images/samples/sample_4.PNG" alt="Mobile — cleanup mode" width="280"></td>
+<td><img src="images/samples/sample_5.PNG" alt="Mobile — events" width="280"></td>
+<td><img src="images/samples/sample_6.PNG" alt="Mobile — leaderboard" width="280"></td>
+</tr>
+</table>
+
+---
+
 ## Features
 
 ### Reporting & Cleanup
@@ -50,40 +82,6 @@ Interactive web map for reporting trash and organizing cleanup efforts in the Up
 | **Rate limiting** | Per-IP and per-user rate limits on all write endpoints (django-ratelimit) |
 | **IP bans** | Admin-managed IP ban table with optional expiry |
 | **CSRF + photo validation** | CSRF on all write endpoints; photo uploads validated by count, size, and MIME type |
-
----
-
-## Screenshots
-
-<table>
-<tr>
-<td><img src="images/Demo_1.png" alt="Report mode with site detail" width="420"></td>
-<td><img src="images/Demo_2.png" alt="Completed cleanups page" width="420"></td>
-</tr>
-<tr>
-<td><img src="images/Demo_3.png" alt="District 3 boundary with site detail" width="420"></td>
-<td><img src="images/Demo_4.png" alt="Cleanup mode draw area" width="420"></td>
-</tr>
-<tr>
-<td><img src="images/Sample_1.png" alt="Sample report view" width="420"></td>
-<td><img src="images/Sample_2.png" alt="Sample cleanup view" width="420"></td>
-</tr>
-</table>
-
-## Mobile
-
-<table>
-<tr>
-<td><img src="images/samples/sample_1.PNG" alt="Mobile — map view" width="280"></td>
-<td><img src="images/samples/sample_2.PNG" alt="Mobile — report panel" width="280"></td>
-<td><img src="images/samples/sample_3.PNG" alt="Mobile — site detail" width="280"></td>
-</tr>
-<tr>
-<td><img src="images/samples/sample_4.PNG" alt="Mobile — cleanup mode" width="280"></td>
-<td><img src="images/samples/sample_5.PNG" alt="Mobile — events" width="280"></td>
-<td><img src="images/samples/sample_6.PNG" alt="Mobile — leaderboard" width="280"></td>
-</tr>
-</table>
 
 ---
 

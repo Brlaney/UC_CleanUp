@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Leaderboard — UC CleanUp{% endblock %}
+
+{% block extra_head %}
+<style>
+  .leaderboard-wrap { max-width: 680px; margin: 0 auto; padding: 2rem 1rem; }
+  .period-switcher { display: flex; gap: 0.5rem; margin: 1.25rem 0; }
+  .period-btn { padding: 0.45rem 1.1rem; border: 1px solid var(--color-border-soft); border-radius: var(--radius-pill); background: var(--color-surface-soft); color: var(--color-text-secondary); font-weight: 700; cursor: pointer; font-size: 0.9rem; }
+  .period-btn.is-active { background: var(--color-btn-primary-bg); color: #fff; border-color: var(--color-btn-primary-bg); }
+  .leaderboard-table { width: 100%; border-collapse: collapse; }
+  .leaderboard-table th { text-align: left; padding: 0.55rem 0.9rem; background: rgba(14,94,168,0.06); border-bottom: 2px solid var(--color-border-soft); font-size: 0.82rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); }
+  .leaderboard-table td { padding: 0.65rem 0.9rem; border-bottom: 1px solid var(--color-border-soft); }
+  .rank-medal { font-weight: 800; font-size: 1rem; }
+  .rank-1 { color: #d4a100; }
+  .rank-2 { color: #8a9aa8; }
+  .rank-3 { color: #c4742a; }
+  .cleanup-count { font-weight: 800; color: var(--color-btn-primary-bg); }
+  .leaderboard-empty { padding: 2rem; text-align: center; color: var(--color-text-secondary); }
+  .leaderboard-loading { padding: 2rem; text-align: center; color: var(--color-text-muted); font-size: 0.95rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="leaderboard-wrap">
+  <h1>Leaderboard</h1>
+  <p>Top volunteers by cleanup submissions. Users must opt in to show their name publicly — others appear as "Anonymous".</p>
+
+  <div class="period-switcher" role="group" aria-label="Time period">
+    <button class="period-btn is-active" data-period="month" type="button">This Month</button>
+    <button class="period-btn" data-period="alltime" type="button">All Time</button>
+  </div>
+
+  <div id="leaderboard-content">
+    <div class="leaderboard-loading">Loading&hellip;</div>
+  </div>
+
+  <p style="margin-top:2rem">
+    <a class="btn btn-subtle btn-compact" href="{% url 'map' %}">&larr; Back to Map</a>
+    {% if user.is_authenticated %}
+      <a class="btn btn-subtle btn-compact" href="{% url 'profile' %}">My Profile</a>
+    {% endif %}
+  </p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var content = document.getElementById("leaderboard-content");
+  var activePeriod = "month";
+
+  function renderTable(data) {
+    var results = data.results || [];
+    if (!results.length) {
+      content.innerHTML = '<div class="leaderboard-empty">No cleanups recorded yet for this period.</div>';
+      return;
+    }
+    var html = '<table class="leaderboard-table"><thead><tr><th>Rank</th><th>Volunteer</th><th>Cleanups</th></tr></thead><tbody>';
+    results.forEach(function (row) {
+      var rankClass = row.rank <= 3 ? " rank-" + row.rank : "";
+      html += "<tr>";
+      html += '<td class="rank-medal' + rankClass + '">#' + row.rank + "</td>";
+      html += "<td>" + (row.username || "Anonymous") + "</td>";
+      html += '<td class="cleanup-count">' + row.count + "</td>";
+      html += "</tr>";
+    });
+    html += "</tbody></table>";
+    content.innerHTML = html;
+  }
+
+  function load(period) {
+    content.innerHTML = '<div class="leaderboard-loading">Loading&hellip;</div>';
+    fetch("/api/leaderboard/?period=" + period)
+      .then(function (r) { return r.json(); })
+      .then(renderTable)
+      .catch(function () {
+        content.innerHTML = '<div class="leaderboard-empty">Unable to load leaderboard.</div>';
+      });
+  }
+
+  document.querySelectorAll(".period-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      document.querySelectorAll(".period-btn").forEach(function (b) { b.classList.remove("is-active"); });
+      btn.classList.add("is-active");
+      activePeriod = btn.dataset.period;
+      load(activePeriod);
+    });
+  });
+
+  load(activePeriod);
+}());
+</script>
+{% endblock %}

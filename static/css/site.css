@@ -810,6 +810,17 @@ button:disabled,
   color: var(--color-text-secondary);
 }
 
+.share-btn-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+
+.share-btn-grid .btn {
+  justify-content: center;
+  text-align: center;
+}
+
 .modal-card form {
   display: flex;
   flex-direction: column;

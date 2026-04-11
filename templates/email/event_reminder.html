@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: system-ui, sans-serif; color: #1a2940; max-width: 600px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { font-size: 1.2rem; }
+  .detail { background: #f0f4f8; border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+  .detail p { margin: 0.35rem 0; }
+  .label { font-weight: 700; color: #4a5568; font-size: 0.85rem; text-transform: uppercase; }
+  a { color: #0e5ea8; }
+  .footer { margin-top: 2rem; font-size: 0.82rem; color: #718096; }
+</style>
+</head>
+<body>
+<h1>&#9200; Reminder: {{ event.title }} is tomorrow!</h1>
+<p>Just a friendly reminder that you've RSVP'd for a cleanup event happening tomorrow.</p>
+
+<div class="detail">
+  <p><span class="label">Event</span><br>{{ event.title }}</p>
+  <p><span class="label">Date &amp; Time</span><br>{{ event.event_date|date:"l, F j, Y" }} at {{ event.event_date|time:"g:i A" }}</p>
+  <p><span class="label">Attendees</span><br>{{ attendee_count }} people are coming</p>
+  {% if event.description %}<p><span class="label">Details</span><br>{{ event.description }}</p>{% endif %}
+</div>
+
+<p><a href="https://uc-cleanup.com/">View on the map &rarr;</a></p>
+
+<p class="footer">You're receiving this reminder because you RSVP'd on UC CleanUp.</p>
+</body>
+</html>

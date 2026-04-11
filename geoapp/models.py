@@ -50,10 +50,12 @@ class District(models.Model):
 class Profile(models.Model):
     class Role(models.TextChoices):
         MEMBER = "MEMBER", "Member"
+        COORDINATOR = "COORDINATOR", "Coordinator"
         ADMIN = "ADMIN", "Admin"
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER, db_index=True)
+    public_profile = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -91,9 +93,16 @@ class TrashSite(models.Model):
     claimed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="trash_sites_claimed"
     )
+    verified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="verifications"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     cleaned_at = models.DateTimeField(null=True, blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    verification_note = models.CharField(max_length=500, blank=True)
+    work_order = models.CharField(max_length=100, blank=True)
+    team = models.ForeignKey("Team", on_delete=models.SET_NULL, null=True, blank=True, related_name="trash_sites")
 
     class Meta:
         ordering = ["-created_at"]
@@ -136,6 +145,7 @@ class CleanupProof(models.Model):
     note = models.TextField(blank=True)
     bags_count = models.PositiveIntegerField(default=0)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="proofs_created")
+    team = models.ForeignKey("Team", on_delete=models.SET_NULL, null=True, blank=True, related_name="cleanup_proofs")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -220,6 +230,113 @@ class FeedbackEntry(models.Model):
 
     def __str__(self):
         return f"{self.feedback_type} from {self.created_by or 'deleted user'}"
+
+
+class CleanupEvent(models.Model):
+    class Status(models.TextChoices):
+        SCHEDULED = "SCHEDULED", "Scheduled"
+        COMPLETED = "COMPLETED", "Completed"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    location = models.PointField(geography=True, srid=4326)
+    district = models.ForeignKey(
+        District, on_delete=models.SET_NULL, null=True, blank=True, related_name="events"
+    )
+    trash_site = models.ForeignKey(
+        "TrashSite", on_delete=models.SET_NULL, null=True, blank=True, related_name="events"
+    )
+    organizer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="organized_events"
+    )
+    event_date = models.DateTimeField(db_index=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED, db_index=True)
+    max_attendees = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["event_date"]
+
+    def __str__(self):
+        return f"{self.title} ({self.event_date.date()})"
+
+
+class EventRSVP(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event = models.ForeignKey(CleanupEvent, on_delete=models.CASCADE, related_name="rsvps")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="event_rsvps"
+    )
+    name = models.CharField(max_length=100, blank=True)
+    email = models.EmailField(blank=True)
+    rsvp_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["rsvp_at"]
+        unique_together = [["event", "user"]]
+
+    def __str__(self):
+        return f"RSVP {self.id} for event {self.event_id}"
+
+
+class Team(models.Model):
+    class OrgType(models.TextChoices):
+        SCHOOL = "SCHOOL", "School"
+        CIVIC = "CIVIC", "Civic Group"
+        CHURCH = "CHURCH", "Church"
+        SCOUT = "SCOUT", "Scout Troop"
+        OTHER = "OTHER", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    org_type = models.CharField(max_length=20, choices=OrgType.choices, default=OrgType.OTHER)
+    leader = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="led_teams")
+    district = models.ForeignKey(District, on_delete=models.SET_NULL, null=True, blank=True, related_name="teams")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class TeamMembership(models.Model):
+    class Role(models.TextChoices):
+        LEADER = "LEADER", "Leader"
+        MEMBER = "MEMBER", "Member"
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="team_memberships")
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="memberships")
+    role = models.CharField(max_length=10, choices=Role.choices, default=Role.MEMBER)
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["joined_at"]
+        unique_together = [["user", "team"]]
+
+    def __str__(self):
+        return f"{self.user.username} in {self.team.name}"
+
+
+class PushSubscription(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="push_subscriptions")
+    endpoint = models.TextField()
+    p256dh = models.TextField()
+    auth_key = models.TextField()
+    saved_location = models.PointField(geography=True, srid=4326, null=True, blank=True)
+    notification_radius_miles = models.FloatField(default=2.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"PushSub {self.id}"
 
 
 class IPBan(models.Model):

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Certificate of Contribution — {{ team.name }}</title>
+<style>
+  @media print {
+    .no-print { display: none; }
+    body { margin: 0; }
+  }
+  body { font-family: Georgia, 'Times New Roman', serif; color: #1a2940; max-width: 720px; margin: 3rem auto; padding: 1rem 2rem; background: #fff; }
+  .cert-border { border: 6px double #0d5e97; padding: 2.5rem 3rem; text-align: center; }
+  .cert-logo { font-size: 2.5rem; margin-bottom: 0.5rem; }
+  .cert-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.2em; color: #4a5568; margin: 0; }
+  .cert-org { font-size: 2rem; font-weight: 700; color: #0d5e97; margin: 0.75rem 0 0.25rem; }
+  .cert-body { font-size: 1rem; color: #4a5568; max-width: 480px; margin: 0 auto 1.5rem; line-height: 1.6; }
+  .cert-stats { display: flex; justify-content: center; gap: 3rem; margin: 1.5rem 0; }
+  .cert-stat-num { display: block; font-size: 2rem; font-weight: 700; color: #0d5e97; }
+  .cert-stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: #718096; }
+  .cert-footer { margin-top: 2rem; font-size: 0.8rem; color: #a0aec0; border-top: 1px solid #e2e8f0; padding-top: 1rem; }
+  .no-print { margin: 1.5rem 0; text-align: center; }
+  .no-print button { padding: 0.5rem 1.5rem; background: #0d5e97; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; margin-right: 0.5rem; }
+</style>
+</head>
+<body>
+<div class="no-print">
+  <button onclick="window.print()">Print Certificate</button>
+  <a href="{% url 'team' team.slug %}">&larr; Back to Team</a>
+</div>
+<div class="cert-border">
+  <div class="cert-logo">&#127807;</div>
+  <p class="cert-title">Certificate of Community Contribution</p>
+  <h1 class="cert-org">{{ team.name }}</h1>
+  <p class="cert-body">
+    This certifies that <strong>{{ team.name }}</strong> has made a meaningful contribution
+    to keeping the Upper Cumberland region clean and beautiful.
+  </p>
+  <div class="cert-stats">
+    <div>
+      <span class="cert-stat-num">{{ stats.site_count }}</span>
+      <span class="cert-stat-label">Sites Reported</span>
+    </div>
+    <div>
+      <span class="cert-stat-num">{{ stats.cleanup_count }}</span>
+      <span class="cert-stat-label">Cleanups</span>
+    </div>
+    <div>
+      <span class="cert-stat-num">{{ stats.bags_total }}</span>
+      <span class="cert-stat-label">Bags Collected</span>
+    </div>
+    <div>
+      <span class="cert-stat-num">{{ stats.member_count }}</span>
+      <span class="cert-stat-label">Members</span>
+    </div>
+  </div>
+  <div class="cert-footer">
+    Issued by UC CleanUp &bull; uc-cleanup.com &bull; Upper Cumberland Region
+  </div>
+</div>
+</body>
+</html>

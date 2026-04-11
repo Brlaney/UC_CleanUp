@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}My Profile - District 3 CleanUp{% endblock %}
+{% block title %}My Profile - UC CleanUp{% endblock %}
 
 {% block content %}
 <section class="auth-wrap">
@@ -20,8 +20,47 @@
         </div>
     </div>
 
+    <div class="profile-leaderboard-pref">
+        <label class="toggle-chip" style="max-width:360px;cursor:pointer;">
+            <input type="checkbox" id="public-profile-toggle" {% if public_profile %}checked{% endif %}>
+            <span>Show my name on the leaderboard</span>
+        </label>
+        <p id="leaderboard-pref-status" style="min-height:1.2rem;font-size:0.88rem;color:var(--color-text-muted);margin:0.4rem 0 0;"></p>
+    </div>
+
     <div class="profile-actions">
         <a class="btn btn-primary" href="{% url 'map' %}">Back to Map</a>
+        <a class="btn btn-subtle btn-compact" href="{% url 'leaderboard' %}">View Leaderboard</a>
     </div>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var toggle = document.getElementById("public-profile-toggle");
+    var status = document.getElementById("leaderboard-pref-status");
+    if (!toggle) return;
+
+    var csrfToken = document.querySelector("meta[name='csrf-token']");
+    var csrf = csrfToken ? csrfToken.content : "";
+
+    toggle.addEventListener("change", function () {
+        status.textContent = "Saving\u2026";
+        fetch("{% url 'api_preferences' %}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+            body: JSON.stringify({ public_profile: toggle.checked }),
+        })
+        .then(function (r) { return r.json(); })
+        .then(function () {
+            status.textContent = toggle.checked ? "Your name will appear on the leaderboard." : "You will appear as Anonymous.";
+            setTimeout(function () { status.textContent = ""; }, 3000);
+        })
+        .catch(function () {
+            status.textContent = "Failed to save preference.";
+        });
+    });
+}());
+</script>
 {% endblock %}

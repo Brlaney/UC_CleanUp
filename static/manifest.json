@@ -1,0 +1,16 @@
+{
+  "name": "Upper-Cumberland CleanUp",
+  "short_name": "UC CleanUp",
+  "description": "Community trash reporting and cleanup coordination for the Upper Cumberland region.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0f4f8",
+  "theme_color": "#0d5e97",
+  "icons": [
+    {
+      "src": "/static/images/favicon.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ]
+}

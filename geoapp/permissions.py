@@ -30,5 +30,14 @@ def can_submit_cleanup(user, site):
     return bool(user and user.is_authenticated and site.status != TrashSite.Status.INVALID)
 
 
+def can_verify_cleanup(user):
+    if not user or not user.is_authenticated:
+        return False
+    if is_admin(user):
+        return True
+    profile = getattr(user, "profile", None)
+    return bool(profile and profile.role == Profile.Role.COORDINATOR)
+
+
 def can_view_feedback_admin(user):
     return is_admin(user)

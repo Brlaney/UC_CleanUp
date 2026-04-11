@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: system-ui, sans-serif; color: #1a2940; max-width: 680px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { font-size: 1.3rem; }
+  p { color: #4a5568; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 1.5rem; }
+  th { text-align: left; padding: 0.5rem 0.75rem; background: #eaf1f8; border-bottom: 2px solid #c7d8ea; }
+  td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.78rem; font-weight: 700; }
+  .badge-pending { background: #fde8dc; color: #9b3a12; }
+  .badge-in-progress { background: #fef9c3; color: #7c5f00; }
+  a { color: #0e5ea8; }
+</style>
+</head>
+<body>
+<h1>Persistent Problem Sites — {{ report_date|date:"F Y" }}</h1>
+<p>
+  The following <strong>{{ site_count }}</strong> trash site{{ site_count|pluralize }} have been open (PENDING or IN PROGRESS)
+  for <strong>90 or more days</strong> without being cleaned.
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Title</th>
+      <th>Status</th>
+      <th>Severity</th>
+      <th>District</th>
+      <th>Reported</th>
+      <th>Days Open</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for site in sites %}
+    <tr>
+      <td>{{ forloop.counter }}</td>
+      <td>{{ site.title|default:"Unnamed" }}</td>
+      <td>
+        <span class="badge {% if site.status == 'PENDING' %}badge-pending{% else %}badge-in-progress{% endif %}">
+          {{ site.get_status_display }}
+        </span>
+      </td>
+      <td>{{ site.get_severity_display|default:"—" }}</td>
+      <td>{{ site.district.name|default:"Unknown" }}</td>
+      <td>{{ site.created_at|date:"M j, Y" }}</td>
+      <td>{{ site.created_at|timesince|truncatewords:2 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p style="margin-top:2rem;font-size:0.85rem;color:#718096;">
+  This report was generated automatically by UC CleanUp. To view sites on the map, visit
+  <a href="https://uc-cleanup.com">uc-cleanup.com</a>.
+</p>
+</body>
+</html>

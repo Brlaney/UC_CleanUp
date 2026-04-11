@@ -82,9 +82,10 @@ default_database_url = (
     f"/{os.getenv('POSTGRES_DB', 'putnam_trashmap')}"
 )
 
+_db_url = os.getenv("DB_CONN_STRING") or os.getenv("DATABASE_URL") or default_database_url
 DATABASES = {
-    "default": dj_database_url.config(
-        default=os.getenv("DB_CONN_STRING", os.getenv("DATABASE_URL", default_database_url)),
+    "default": dj_database_url.parse(
+        _db_url,
         engine="django.contrib.gis.db.backends.postgis",
         conn_max_age=int(os.getenv("CONN_MAX_AGE", "60")),
         ssl_require=os.getenv("DATABASE_SSL_REQUIRE", "0") == "1",
@@ -165,6 +166,11 @@ EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+DISTRICT_REP_EMAIL = os.getenv("DISTRICT_REP_EMAIL", "")
+
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
+VAPID_EMAIL = os.getenv("VAPID_EMAIL", "mailto:admin@uc-cleanup.com")
 
 USE_S3_MEDIA = os.getenv("USE_S3_MEDIA", "0") == "1"
 if USE_S3_MEDIA:

@@ -44,13 +44,18 @@
 
   var trashLayer = L.layerGroup().addTo(map);
   var areaLayer = L.layerGroup().addTo(map);
+  var eventLayer = L.layerGroup().addTo(map);
   var districtPane = map.createPane("districtPane");
   districtPane.style.zIndex = 350;
   var maskPane = map.createPane("maskPane");
   maskPane.style.zIndex = 340;
+  var heatPane = map.createPane("heatPane");
+  heatPane.style.zIndex = 320;
 
   var districtBoundaryLayer = null;
   var outsideMaskLayer = null;
+  var heatLayer = null;
+  var heatVisible = true;
 
   /* ---- State ---- */
   var currentMode = "report"; // "report" | "cleanup"
@@ -66,6 +71,7 @@
   var placePinBtn = document.getElementById("place-pin-btn");
   var drawAreaBtn = document.getElementById("draw-area-btn");
   var applyFiltersBtn = document.getElementById("apply-filters-btn");
+  var createEventBtn = document.getElementById("create-event-btn");
   var detailContent = document.getElementById("detail-content");
   var trashForm = document.getElementById("trash-form");
   var cleanedForm = document.getElementById("cleaned-form");
@@ -284,6 +290,14 @@
     if (chk) chk.checked = visible;
   };
 
+  window.mapHeatToggle = function (visible) {
+    heatVisible = visible;
+    if (!heatLayer) return;
+    if (visible) { heatLayer.addTo(map); } else { map.removeLayer(heatLayer); }
+    var chk = document.getElementById("layer-chk-heatmap");
+    if (chk) chk.checked = visible;
+  };
+
   function syncSelectAll(container) {
     var allChk = container.querySelector("input[id^='layer-chk-all']");
     if (!allChk) return;
@@ -437,6 +451,20 @@
         }
       });
 
+      // Heatmap toggle (below districts)
+      if (desktopContainer) {
+        var heatDivEl = document.createElement("div");
+        heatDivEl.className = "layer-toggle-divider";
+        desktopContainer.appendChild(heatDivEl);
+        var heatToggleLabel = document.createElement("label");
+        heatToggleLabel.className = "layer-toggle";
+        heatToggleLabel.innerHTML = '<input type="checkbox" id="layer-chk-heatmap" checked><span>Heat Map</span>';
+        desktopContainer.appendChild(heatToggleLabel);
+        heatToggleLabel.querySelector("input").addEventListener("change", function (e) {
+          window.mapHeatToggle(e.target.checked);
+        });
+      }
+
       // Apply saved preferences (if authenticated)
       if (isAuth && config.endpoints && config.endpoints.preferences) {
         U.fetchJson(config.endpoints.preferences).then(function (prefs) {
@@ -447,6 +475,49 @@
     }).catch(function () {
       // Districts may not be seeded yet; fail silently
     });
+  }
+
+  /* ---- Heatmap ---- */
+  function loadHeatmap() {
+    if (!config.endpoints || !config.endpoints.heatmap) return;
+    if (typeof L.heatLayer === "undefined") return;
+    U.fetchJson(config.endpoints.heatmap).then(function (data) {
+      var points = data.points || [];
+      if (heatLayer) { map.removeLayer(heatLayer); }
+      heatLayer = L.heatLayer(points, { radius: 25, blur: 15, maxZoom: 17, pane: "heatPane" });
+      if (heatVisible) heatLayer.addTo(map);
+    }).catch(function () {});
+  }
+
+  /* ---- Impact counter ---- */
+  function animateCount(el, target) {
+    var start = 0;
+    var duration = 900;
+    var startTime = null;
+    function step(ts) {
+      if (!startTime) startTime = ts;
+      var progress = Math.min((ts - startTime) / duration, 1);
+      var eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.round(start + (target - start) * eased).toLocaleString();
+      if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function loadImpact() {
+    if (!config.endpoints || !config.endpoints.impact) return;
+    U.fetchJson(config.endpoints.impact).then(function (data) {
+      var maps = {
+        "impact-bags": data.bags_collected || 0,
+        "impact-cleaned": data.sites_cleaned || 0,
+        "impact-reported": data.sites_reported || 0,
+        "impact-volunteers": data.active_volunteers_this_month || 0,
+      };
+      Object.keys(maps).forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) animateCount(el, maps[id]);
+      });
+    }).catch(function () {});
   }
 
   /* ---- Feature loading ---- */
@@ -542,10 +613,17 @@
       if (site.hazard_flag) html += renderBadge("Hazard", "hazard");
       html += '</div></div>';
 
+      if (site.verified_at) {
+        html += renderBadge("Verified \u2713", "verified");
+      }
       html += '<dl class="detail-meta-grid">';
       html += renderMeta("Reported by", site.created_by);
       html += renderMeta("Created", formatDate(site.created_at));
       if (site.cleaned_at) html += renderMeta("Cleaned", formatDate(site.cleaned_at));
+      if (site.verified_at) {
+        html += renderMeta("Verified by", site.verified_by + " on " + formatDate(site.verified_at));
+        if (site.work_order) html += renderMeta("Work Order", site.work_order);
+      }
       html += '</dl>';
 
       if (site.description) {
@@ -596,25 +674,47 @@
         html += '</div>';
       }
 
+      // Verify button (coordinators / admins, cleaned sites not yet verified)
+      if (site.permissions && site.permissions.can_verify && site.status === "CLEANED" && !site.verified_at) {
+        html += '<div class="detail-action-row">';
+        html += '<button class="btn btn-subtle btn-compact" data-verify-site="' + site.id + '">Verify Cleanup</button>';
+        html += '</div>';
+      }
+
+      // Share button (any site)
+      html += '<div class="detail-action-row">';
+      html += '<button class="btn btn-subtle btn-compact" data-share-site="' + site.id + '" data-share-title="' + U.escapeHtml(site.title || "Unnamed Site") + '">Share</button>';
       html += '</div>';
 
-      var cleanBtn;
+      html += '</div>';
+
+      function attachDetailHandlers(container) {
+        var cleanBtn = container.querySelector("[data-open-cleaned]");
+        if (cleanBtn) {
+          cleanBtn.addEventListener("click", function () {
+            openCleanedModal(cleanBtn.getAttribute("data-open-cleaned"));
+          });
+        }
+        var verifyBtn = container.querySelector("[data-verify-site]");
+        if (verifyBtn) {
+          verifyBtn.addEventListener("click", function () {
+            openVerifyModal(verifyBtn.getAttribute("data-verify-site"));
+          });
+        }
+        var shareBtn = container.querySelector("[data-share-site]");
+        if (shareBtn) {
+          shareBtn.addEventListener("click", function () {
+            openShareModal(shareBtn.getAttribute("data-share-site"), shareBtn.getAttribute("data-share-title"));
+          });
+        }
+      }
+
       if (mobile) {
         mobileDetailBody.innerHTML = html;
-        cleanBtn = mobileDetailBody.querySelector("[data-open-cleaned]");
-        if (cleanBtn) {
-          cleanBtn.addEventListener("click", function () {
-            openCleanedModal(cleanBtn.getAttribute("data-open-cleaned"));
-          });
-        }
+        attachDetailHandlers(mobileDetailBody);
       } else {
         setDetail(html);
-        cleanBtn = detailContent.querySelector("[data-open-cleaned]");
-        if (cleanBtn) {
-          cleanBtn.addEventListener("click", function () {
-            openCleanedModal(cleanBtn.getAttribute("data-open-cleaned"));
-          });
-        }
+        attachDetailHandlers(detailContent);
       }
     }).catch(function () {
       if (mobile) {
@@ -623,6 +723,61 @@
         setDetail('<p style="color:var(--color-text-muted)">Unable to load details.</p>');
       }
     });
+  }
+
+  /* ---- Verify cleanup ---- */
+  function openVerifyModal(siteId) {
+    var note = window.prompt("Verification note (optional):", "");
+    if (note === null) return; // cancelled
+    var workOrder = window.prompt("Work order number (optional):", "");
+    if (workOrder === null) return;
+
+    var url = (config.endpoints && config.endpoints.trashUpdateBase)
+      ? config.endpoints.trashUpdateBase + siteId + "/verify/"
+      : "/api/trash-sites/" + siteId + "/verify/";
+
+    U.fetchJson(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": U.getCsrfToken() },
+      body: JSON.stringify({ verification_note: note, work_order: workOrder }),
+    }).then(function () {
+      U.showToast("Cleanup verified!", "success");
+      showDetail(siteId);
+    }).catch(function (err) {
+      U.showToast(err.message || "Verification failed.", "error");
+    });
+  }
+
+  /* ---- Share modal ---- */
+  var shareCopyBtn = document.getElementById("share-copy-btn");
+  var shareFbBtn = document.getElementById("share-fb-btn");
+  var shareXBtn = document.getElementById("share-x-btn");
+  var shareModalDesc = document.getElementById("share-modal-desc");
+
+  function openShareModal(siteId, siteTitle) {
+    var shareUrl = window.location.origin + "/share/" + siteId + "/";
+    var text = (siteTitle || "Unnamed Site") + " was cleaned in Putnam County!";
+
+    if (navigator.share) {
+      navigator.share({ title: siteTitle || "Cleanup Result", text: text, url: shareUrl }).catch(function () {});
+      return;
+    }
+
+    if (shareModalDesc) shareModalDesc.textContent = text;
+    if (shareFbBtn) shareFbBtn.href = "https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(shareUrl);
+    if (shareXBtn) shareXBtn.href = "https://twitter.com/intent/tweet?url=" + encodeURIComponent(shareUrl) + "&text=" + encodeURIComponent(text);
+    if (shareCopyBtn) {
+      shareCopyBtn.onclick = function () {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(shareUrl).then(function () {
+            U.showToast("Link copied!", "success");
+          }).catch(function () {
+            U.showToast("Could not copy link.", "error");
+          });
+        }
+      };
+    }
+    U.openModal("share-modal");
   }
 
   /* ---- Mode switching ---- */
@@ -661,6 +816,7 @@
     map.getContainer().style.cursor = "";
     if (placePinBtn) placePinBtn.classList.remove("is-active");
     if (drawAreaBtn) drawAreaBtn.classList.remove("is-active");
+    if (createEventBtn) createEventBtn.classList.remove("is-active");
   }
 
   placePinBtn.addEventListener("click", function () {
@@ -685,7 +841,18 @@
   });
 
   map.on("click", function (e) {
-    if (currentMode !== "report" || reportSubMode !== "pin") return;
+    if (currentMode !== "report") return;
+
+    if (reportSubMode === "event") {
+      if (!requireAuth()) return;
+      document.getElementById("event-lat").value = e.latlng.lat;
+      document.getElementById("event-lng").value = e.latlng.lng;
+      U.openModal("event-modal");
+      cancelReportSubMode();
+      return;
+    }
+
+    if (reportSubMode !== "pin") return;
     if (!requireAuth()) return;
 
     if (pendingMarker) map.removeLayer(pendingMarker);
@@ -728,9 +895,23 @@
   trashForm.addEventListener("submit", function (e) {
     e.preventDefault();
     if (!requireAuth()) return;
-    setLoading("trash-submit-btn", true);
 
     var formData = new FormData(trashForm);
+
+    if (!navigator.onLine) {
+      savePendingReport(formData).then(function() {
+        trashForm.reset();
+        document.getElementById("trash-photo-preview").innerHTML = "";
+        U.closeModal("trash-modal");
+        U.showToast("Saved offline \u2014 will sync when you reconnect.", "success");
+        if (pendingMarker) { map.removeLayer(pendingMarker); pendingMarker = null; }
+      }).catch(function() {
+        U.showToast("Could not save report locally.", "error");
+      });
+      return;
+    }
+
+    setLoading("trash-submit-btn", true);
     U.fetchJson(config.endpoints.trashCreate, {
       method: "POST",
       headers: { "X-CSRFToken": U.getCsrfToken() },
@@ -812,15 +993,379 @@
   /* ---- Reload on pan/zoom ---- */
   map.on("moveend", loadFeatures);
 
+  /* ---- Cleanup Events ---- */
+  function loadEvents() {
+    if (!config.endpoints || !config.endpoints.eventsBase) return;
+    U.fetchJson(config.endpoints.eventsBase + "?status=SCHEDULED").then(function (data) {
+      eventLayer.clearLayers();
+      var events = data.results || [];
+      events.forEach(function (ev) {
+        var coords = ev.coordinates;
+        var marker = L.marker([coords[1], coords[0]], {
+          icon: L.divIcon({
+            className: "",
+            html: '<div class="event-map-marker" title="' + U.escapeHtml(ev.title) + '">&#128197;</div>',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+          }),
+        });
+        marker.on("click", function () {
+          showEventDetail(ev.id);
+        });
+        marker.addTo(eventLayer);
+      });
+    }).catch(function () {});
+  }
+
+  function showEventDetail(eventId) {
+    var mobile = isMobileView();
+    var loading = '<p style="color:var(--color-text-muted)">Loading\u2026</p>';
+    if (mobile) { mobileDetailBody.innerHTML = loading; mobileDetailCard.classList.remove("hidden"); }
+    else { setDetail(loading); }
+
+    U.fetchJson(config.endpoints.eventsBase + eventId + "/").then(function (ev) {
+      var d = new Date(ev.event_date);
+      var dateStr = d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+      var timeStr = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true });
+
+      var html = '<div class="detail-panel">';
+      html += '<div class="detail-panel-header">';
+      html += '<span class="detail-kicker">Cleanup Event</span>';
+      html += '<h3>' + U.escapeHtml(ev.title) + '</h3>';
+      html += '<div class="detail-badge-row">';
+      html += renderBadge(titleCase(ev.status), tokenClass(ev.status));
+      if (ev.is_full) html += renderBadge("Full", "hazard");
+      html += '</div></div>';
+
+      html += '<dl class="detail-meta-grid">';
+      html += renderMeta("Date", dateStr);
+      html += renderMeta("Time", timeStr);
+      html += renderMeta("Organizer", ev.organizer);
+      html += renderMeta("RSVPs", ev.rsvp_count + (ev.max_attendees ? " / " + ev.max_attendees : ""));
+      html += '</dl>';
+
+      if (ev.description) {
+        html += '<div class="detail-section"><h4>Details</h4>';
+        html += '<p class="detail-copy">' + U.escapeHtml(ev.description) + '</p></div>';
+      }
+
+      if (ev.status === "SCHEDULED") {
+        html += '<div class="detail-action-row">';
+        if (!isAuth) {
+          html += '<a class="btn btn-primary" href="/accounts/login/">Log in to RSVP</a>';
+        } else if (ev.user_has_rsvp) {
+          html += '<button class="btn btn-subtle btn-compact" data-cancel-rsvp="' + ev.id + '">Cancel RSVP</button>';
+        } else if (!ev.is_full) {
+          html += '<button class="btn btn-primary" data-rsvp="' + ev.id + '">RSVP</button>';
+        } else {
+          html += '<button class="btn btn-subtle btn-compact" disabled>Event Full</button>';
+        }
+        if (ev.permissions && ev.permissions.can_complete) {
+          html += ' <button class="btn btn-subtle btn-compact" data-complete-event="' + ev.id + '">Mark Completed</button>';
+        }
+        html += '</div>';
+      }
+
+      html += '</div>';
+
+      function attachEventHandlers(container) {
+        var rsvpBtn = container.querySelector("[data-rsvp]");
+        if (rsvpBtn) {
+          rsvpBtn.addEventListener("click", function () {
+            submitRsvp(rsvpBtn.getAttribute("data-rsvp"), true);
+          });
+        }
+        var cancelBtn = container.querySelector("[data-cancel-rsvp]");
+        if (cancelBtn) {
+          cancelBtn.addEventListener("click", function () {
+            submitRsvp(cancelBtn.getAttribute("data-cancel-rsvp"), false);
+          });
+        }
+        var completeBtn = container.querySelector("[data-complete-event]");
+        if (completeBtn) {
+          completeBtn.addEventListener("click", function () {
+            completeEvent(completeBtn.getAttribute("data-complete-event"));
+          });
+        }
+      }
+
+      if (mobile) { mobileDetailBody.innerHTML = html; attachEventHandlers(mobileDetailBody); }
+      else { setDetail(html); attachEventHandlers(detailContent); }
+
+    }).catch(function () {
+      var err = '<p style="color:var(--color-text-muted)">Unable to load event details.</p>';
+      if (isMobileView()) { mobileDetailBody.innerHTML = err; } else { setDetail(err); }
+    });
+  }
+
+  function submitRsvp(eventId, rsvping) {
+    var url = config.endpoints.eventsBase + eventId + "/rsvp/";
+    U.fetchJson(url, {
+      method: rsvping ? "POST" : "DELETE",
+      headers: { "X-CSRFToken": U.getCsrfToken() },
+    }).then(function () {
+      U.showToast(rsvping ? "RSVP confirmed!" : "RSVP cancelled.", "success");
+      showEventDetail(eventId);
+    }).catch(function (err) {
+      U.showToast(err.message || "Action failed.", "error");
+    });
+  }
+
+  function completeEvent(eventId) {
+    if (!window.confirm("Mark this event as completed?")) return;
+    U.fetchJson(config.endpoints.eventsBase + eventId + "/complete/", {
+      method: "POST",
+      headers: { "X-CSRFToken": U.getCsrfToken() },
+    }).then(function () {
+      U.showToast("Event marked completed.", "success");
+      loadEvents();
+      showEventDetail(eventId);
+    }).catch(function (err) {
+      U.showToast(err.message || "Failed.", "error");
+    });
+  }
+
+  /* ---- Create Event button ---- */
+  if (createEventBtn) {
+    createEventBtn.addEventListener("click", function () {
+      if (!requireAuth()) return;
+      cancelReportSubMode();
+      reportSubMode = "event";
+      createEventBtn.classList.add("is-active");
+      map.getContainer().style.cursor = "crosshair";
+      U.announce("Click on the map to set the event location.");
+    });
+  }
+
+  /* ---- Create Event form ---- */
+  var eventForm = document.getElementById("event-form");
+  if (eventForm) {
+    eventForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (!requireAuth()) return;
+      setLoading("event-submit-btn", true);
+
+      var payload = {
+        title: document.getElementById("event-title").value.trim(),
+        description: document.getElementById("event-desc").value.trim(),
+        event_date: document.getElementById("event-date").value,
+        lat: parseFloat(document.getElementById("event-lat").value),
+        lng: parseFloat(document.getElementById("event-lng").value),
+      };
+      var maxVal = document.getElementById("event-max").value;
+      if (maxVal) payload.max_attendees = parseInt(maxVal, 10);
+
+      U.fetchJson(config.endpoints.eventsBase, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": U.getCsrfToken() },
+        body: JSON.stringify(payload),
+      }).then(function (ev) {
+        eventForm.reset();
+        U.closeModal("event-modal");
+        U.showToast("Event created!", "success");
+        loadEvents();
+        showEventDetail(ev.id);
+      }).catch(function (err) {
+        U.showToast(err.message || "Failed to create event.", "error");
+      }).finally(function () {
+        setLoading("event-submit-btn", false);
+        var lbl = document.querySelector("#event-submit-btn .btn-label");
+        if (lbl) lbl.textContent = "Create Event";
+      });
+    });
+  }
+
   /* ---- Photo previews ---- */
   U.setupPhotoPreview("trash-photos", "trash-photo-preview", 5);
   U.setupPhotoPreview("cleaned-before-photos", "before-photo-preview", 5);
   U.setupPhotoPreview("cleaned-after-photos", "after-photo-preview", 5);
 
+  /* ---- Teams ---- */
+  function loadTeams() {
+    if (!config.endpoints || !config.endpoints.teamsBase) return;
+    U.fetchJson(config.endpoints.teamsBase).then(function(data) {
+      var teams = data.results || [];
+      ["trash-team", "cleaned-team"].forEach(function(id) {
+        var sel = document.getElementById(id);
+        if (!sel) return;
+        while (sel.options.length > 1) sel.remove(1);
+        teams.forEach(function(t) {
+          var opt = document.createElement("option");
+          opt.value = t.slug;
+          opt.textContent = t.name + (t.is_member ? " \u2713" : "");
+          sel.appendChild(opt);
+        });
+      });
+    }).catch(function() {});
+  }
+
+  /* ---- Offline / IndexedDB ---- */
+  var offlineBanner = document.getElementById("offline-banner");
+
+  function showOfflineBanner(show) {
+    if (!offlineBanner) return;
+    offlineBanner.classList.toggle("hidden", !show);
+  }
+
+  if (!navigator.onLine) showOfflineBanner(true);
+  window.addEventListener("online", function() {
+    showOfflineBanner(false);
+    flushPendingReports();
+  });
+  window.addEventListener("offline", function() { showOfflineBanner(true); });
+
+  function openPendingDB() {
+    return new Promise(function(resolve, reject) {
+      var req = indexedDB.open("uc-cleanup-pending", 1);
+      req.onupgradeneeded = function(e) {
+        e.target.result.createObjectStore("reports", {autoIncrement: true});
+      };
+      req.onsuccess = function(e) { resolve(e.target.result); };
+      req.onerror = function() { reject(req.error); };
+    });
+  }
+
+  function savePendingReport(formData) {
+    return new Promise(function(resolve, reject) {
+      var data = {};
+      var photoPromises = [];
+      formData.forEach(function(value, key) {
+        if (value instanceof File) {
+          var p = new Promise(function(res) {
+            var reader = new FileReader();
+            reader.onload = function(e) { res({key: key, data: e.target.result, name: value.name, type: value.type}); };
+            reader.readAsDataURL(value);
+          });
+          photoPromises.push(p);
+        } else {
+          data[key] = value;
+        }
+      });
+      Promise.all(photoPromises).then(function(photos) {
+        data.__photos = photos;
+        openPendingDB().then(function(db) {
+          var tx = db.transaction("reports", "readwrite");
+          tx.objectStore("reports").add(data);
+          tx.oncomplete = function() { resolve(); };
+          tx.onerror = reject;
+        }).catch(reject);
+      });
+    });
+  }
+
+  function flushPendingReports() {
+    if (!navigator.onLine) return;
+    openPendingDB().then(function(db) {
+      var tx = db.transaction("reports", "readonly");
+      var store = tx.objectStore("reports");
+      var allKeys = [], allData = [];
+      store.getAllKeys().onsuccess = function(e) { allKeys = e.target.result; };
+      store.getAll().onsuccess = function(e) { allData = e.target.result; };
+      tx.oncomplete = function() {
+        if (!allData.length) return;
+        allData.forEach(function(data, i) {
+          var key = allKeys[i];
+          var fd = new FormData();
+          Object.keys(data).forEach(function(k) {
+            if (k === "__photos") return;
+            fd.append(k, data[k]);
+          });
+          (data.__photos || []).forEach(function(p) {
+            var arr = p.data.split(",");
+            var mime = arr[0].match(/:(.*?);/)[1];
+            var bstr = atob(arr[1]);
+            var u8 = new Uint8Array(bstr.length);
+            for (var n = 0; n < bstr.length; n++) u8[n] = bstr.charCodeAt(n);
+            fd.append(p.key, new File([u8], p.name, {type: mime}));
+          });
+          U.fetchJson(config.endpoints.trashCreate, {
+            method: "POST",
+            headers: {"X-CSRFToken": U.getCsrfToken()},
+            body: fd,
+          }).then(function() {
+            var del = db.transaction("reports", "readwrite");
+            del.objectStore("reports").delete(key);
+            loadFeatures();
+            U.showToast("Pending report synced!", "success");
+          }).catch(function() {});
+        });
+      };
+    }).catch(function() {});
+  }
+
+  // Listen for SW sync messages
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", function(e) {
+      if (e.data && e.data.type === "FLUSH_PENDING") flushPendingReports();
+    });
+  }
+
+  /* ---- Push Notifications ---- */
+  function urlBase64ToUint8Array(b64) {
+    var pad = "=".repeat((4 - b64.length % 4) % 4);
+    var b64n = (b64 + pad).replace(/-/g, "+").replace(/_/g, "/");
+    var raw = atob(b64n);
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  var notifyBtn = document.getElementById("enable-notifications-btn");
+  if (notifyBtn && "serviceWorker" in navigator && "PushManager" in window) {
+    notifyBtn.classList.remove("hidden");
+    if (Notification.permission === "granted") {
+      notifyBtn.textContent = "\uD83D\uDD14 Notifications On";
+      notifyBtn.disabled = true;
+    }
+    notifyBtn.addEventListener("click", function() {
+      Notification.requestPermission().then(function(permission) {
+        if (permission !== "granted") {
+          U.showToast("Notification permission denied.", "error");
+          return;
+        }
+        U.fetchJson(config.endpoints.pushVapidKey).then(function(data) {
+          var vapidKey = data.vapid_public_key;
+          navigator.serviceWorker.ready.then(function(reg) {
+            return reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(vapidKey),
+            });
+          }).then(function(subscription) {
+            var sub = subscription.toJSON();
+            var center = map.getCenter();
+            return U.fetchJson(config.endpoints.pushSubscribe, {
+              method: "POST",
+              headers: {"Content-Type": "application/json", "X-CSRFToken": U.getCsrfToken()},
+              body: JSON.stringify({
+                endpoint: sub.endpoint,
+                p256dh: sub.keys.p256dh,
+                auth: sub.keys.auth,
+                lat: center ? center.lat : null,
+                lng: center ? center.lng : null,
+              }),
+            });
+          }).then(function() {
+            U.showToast("Notifications enabled for reports near your current view.", "success");
+            notifyBtn.textContent = "\uD83D\uDD14 Notifications On";
+            notifyBtn.disabled = true;
+          }).catch(function() {
+            U.showToast("Failed to enable notifications.", "error");
+          });
+        }).catch(function() {
+          U.showToast("Push notifications not available on this server.", "error");
+        });
+      });
+    });
+  }
+
   /* ---- Init ---- */
   setMode("report");
   loadDistricts();
   loadFeatures();
+  loadHeatmap();
+  loadImpact();
+  loadEvents();
+  loadTeams();
 
   // Deep link to a specific site from URL params
   var params = new URLSearchParams(window.location.search);

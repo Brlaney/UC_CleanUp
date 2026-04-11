@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}{{ team.name }} — UC CleanUp{% endblock %}
+
+{% block extra_head %}
+<style>
+  .team-wrap { max-width: 760px; margin: 0 auto; padding: 2rem 1rem; }
+  .team-header { margin-bottom: 1.5rem; }
+  .team-kicker { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-text-muted); }
+  .team-org-badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; background: rgba(14,94,168,0.1); color: var(--color-btn-primary-bg); margin-left: 0.5rem; }
+  .team-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+  .team-stat { background: rgba(255,255,255,0.94); border: 1px solid var(--color-border-soft); border-radius: var(--radius-md); padding: 1rem 1.25rem; text-align: center; }
+  .team-stat-num { font-size: 1.5rem; font-weight: 800; color: var(--color-btn-primary-bg); display: block; }
+  .team-stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); font-weight: 700; }
+  .team-members { margin-top: 1.5rem; }
+  .member-list { list-style: none; padding: 0; margin: 0.75rem 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .member-chip { background: var(--color-surface-soft); border: 1px solid var(--color-border-soft); border-radius: 999px; padding: 0.25rem 0.75rem; font-size: 0.88rem; }
+  .member-chip--leader { background: rgba(14,94,168,0.08); border-color: var(--color-btn-primary-bg); color: var(--color-btn-primary-bg); font-weight: 700; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="team-wrap">
+  <div class="team-header">
+    <div class="team-kicker">Team &middot; {{ team.get_org_type_display }}</div>
+    <h1>{{ team.name }}<span class="team-org-badge">{{ team.get_org_type_display }}</span></h1>
+    {% if team.description %}<p>{{ team.description }}</p>{% endif %}
+    {% if team.district %}<p style="color:var(--color-text-muted);font-size:0.9rem">District: {{ team.district.name }}</p>{% endif %}
+  </div>
+
+  <div class="team-stats" id="team-stats">
+    <div class="team-stat"><span class="team-stat-num" id="stat-members">—</span><span class="team-stat-label">Members</span></div>
+    <div class="team-stat"><span class="team-stat-num" id="stat-sites">—</span><span class="team-stat-label">Sites Reported</span></div>
+    <div class="team-stat"><span class="team-stat-num" id="stat-cleanups">—</span><span class="team-stat-label">Cleanups</span></div>
+    <div class="team-stat"><span class="team-stat-num" id="stat-bags">—</span><span class="team-stat-label">Bags Collected</span></div>
+  </div>
+
+  <div class="team-members">
+    <h2>Members</h2>
+    <ul class="member-list" id="member-list"><li>Loading&hellip;</li></ul>
+  </div>
+
+  <div style="margin-top:1.5rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+    {% if user.is_authenticated %}
+      <button class="btn btn-primary" id="join-btn" type="button">Join Team</button>
+    {% endif %}
+    <a class="btn btn-subtle btn-compact" href="{% url 'team_certificate' team.slug %}">View Certificate</a>
+    <a class="btn btn-subtle btn-compact" href="{% url 'map' %}">&larr; Back to Map</a>
+  </div>
+  <div id="team-msg" style="margin-top:0.75rem;font-size:0.9rem;color:var(--color-text-muted)" aria-live="polite"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var slug = "{{ team.slug|escapejs }}";
+  var apiUrl = "/api/teams/" + slug + "/";
+  var joinUrl = "/api/teams/" + slug + "/join/";
+  var msg = document.getElementById("team-msg");
+  var joinBtn = document.getElementById("join-btn");
+
+  function getCsrf() {
+    var m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : "";
+  }
+
+  fetch(apiUrl).then(function(r) { return r.json(); }).then(function(data) {
+    document.getElementById("stat-members").textContent = data.member_count;
+    document.getElementById("stat-sites").textContent = data.site_count;
+    document.getElementById("stat-cleanups").textContent = data.cleanup_count;
+    document.getElementById("stat-bags").textContent = data.bags_total;
+
+    var ul = document.getElementById("member-list");
+    ul.innerHTML = "";
+    if (!data.member_count) {
+      ul.innerHTML = "<li style='color:var(--color-text-muted)'>No members yet.</li>";
+    }
+
+    if (joinBtn) {
+      if (data.is_member) {
+        joinBtn.textContent = "You're a member";
+        joinBtn.disabled = true;
+      }
+    }
+  }).catch(function() {
+    if (msg) msg.textContent = "Unable to load team data.";
+  });
+
+  if (joinBtn) {
+    joinBtn.addEventListener("click", function() {
+      joinBtn.disabled = true;
+      fetch(joinUrl, {
+        method: "POST",
+        headers: {"X-CSRFToken": getCsrf(), "Content-Type": "application/json"},
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.error) {
+          if (msg) msg.textContent = data.error;
+          joinBtn.disabled = false;
+        } else {
+          joinBtn.textContent = "You're a member!";
+          if (msg) msg.textContent = "Welcome to " + data.name + "!";
+        }
+      }).catch(function() {
+        if (msg) msg.textContent = "Failed to join team.";
+        joinBtn.disabled = false;
+      });
+    });
+  }
+}());
+</script>
+{% endblock %}

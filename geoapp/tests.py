@@ -188,6 +188,11 @@ class DistrictModelTests(TestCase):
 
 @override_settings(RATELIMIT_ENABLE=False)
 class DistrictApiTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.delete("districts_api_response")
+        cache.delete("districts_inline_json")
+
     def test_districts_api_returns_active_districts(self):
         District.objects.create(
             name="Active District",
@@ -1453,17 +1458,17 @@ class BadgesApiTests(TestCase):
     def test_badges_api_is_public(self):
         response = self.client.get(reverse("api_badges"))
         self.assertEqual(response.status_code, 200)
-        self.assertIn("badges", response.json())
+        self.assertIn("results", response.json())
 
     def test_badges_api_shows_earned_status_for_auth_user(self):
         user = User.objects.create_user(username="badge-user", password="pass12345")
-        badge = Badge.objects.create(slug="first-cleanup", name="First Cleanup", description="Cleaned a site", icon="🧹")
+        badge = Badge.objects.create(slug="first-cleanup", name="First Cleanup", description="Cleaned a site", icon="x")
         UserBadge.objects.create(user=user, badge=badge)
 
         self.client.force_login(user)
         response = self.client.get(reverse("api_badges"))
         data = response.json()
-        earned = [b for b in data["badges"] if b["slug"] == "first-cleanup"]
+        earned = [b for b in data["results"] if b["slug"] == "first-cleanup"]
         self.assertEqual(len(earned), 1)
         self.assertTrue(earned[0]["earned"])
 

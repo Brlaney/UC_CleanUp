@@ -1052,13 +1052,15 @@ def event_rsvp_api(request, event_id):
                 )
             except Exception:
                 pass
-        return JsonResponse({"rsvp_id": str(rsvp.id), "rsvp_count": event.rsvps.count()})
+        # Use a fresh DB count — event.rsvps.count() would hit the prefetch cache
+        fresh_count = EventRSVP.objects.filter(event_id=event.id).count()
+        return JsonResponse({"rsvp_id": str(rsvp.id), "rsvp_count": fresh_count})
 
     # DELETE — cancel RSVP
-    deleted, _ = event.rsvps.filter(user=request.user).delete()
+    deleted, _ = EventRSVP.objects.filter(event_id=event.id, user=request.user).delete()
     if not deleted:
         return _json_error("No RSVP found to cancel.", status=404)
-    return JsonResponse({"rsvp_count": event.rsvps.count()})
+    return JsonResponse({"rsvp_count": EventRSVP.objects.filter(event_id=event.id).count()})
 
 
 @login_required

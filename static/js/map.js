@@ -57,6 +57,8 @@
 
   var districtBoundaryLayer = null;
   var outsideMaskLayer = null;
+  var countyBoundaryLayer = null;  // boundary lines for selected non-Putnam counties
+  var _ucCountiesGeoJSON = null;   // cached fetch of upper_cumberland_counties.geojson
   var heatLayer = null;
   var heatVisible = true;
 
@@ -284,9 +286,68 @@
   // Map of slug → Leaflet layer, populated after loadDistricts()
   var districtLayers = {};
 
-  // Expose for settings modal — pan/zoom map to a set of county names immediately
+  // Expose for settings modal — update mask, boundary lines, and pan to selected counties
   window.mapApplyCounties = function (counties) {
     if (!counties || !counties.length) return;
+
+    var countyGeoUrl = (config.endpoints || {}).countyGeoUrl;
+    if (!countyGeoUrl) {
+      // Fallback: just pan/zoom if we have no GeoJSON URL
+      _applyCountiesPan(counties);
+      return;
+    }
+
+    var doApply = function (geojson) {
+      // Filter features to the selected counties
+      var selected = geojson.features.filter(function (f) {
+        return counties.indexOf(f.properties.NAME) !== -1;
+      });
+      if (!selected.length) { _applyCountiesPan(counties); return; }
+
+      // Remove old county boundary layer
+      if (countyBoundaryLayer) { countyBoundaryLayer.remove(); countyBoundaryLayer = null; }
+
+      // Build combined mask holes from all selected county geometries
+      var holes = [];
+      selected.forEach(function (f) {
+        var geom = f.geometry;
+        if (geom.type === "MultiPolygon") {
+          geom.coordinates.forEach(function (poly) {
+            holes.push(poly[0].map(function (c) { return [c[1], c[0]]; }));
+          });
+        } else if (geom.type === "Polygon") {
+          holes.push(geom.coordinates[0].map(function (c) { return [c[1], c[0]]; }));
+        }
+      });
+
+      // Replace the outside mask
+      if (outsideMaskLayer) { outsideMaskLayer.remove(); }
+      outsideMaskLayer = L.polygon(
+        [WORLD_RING.map(function (c) { return [c[0], c[1]]; })].concat(holes),
+        { pane: "maskPane", color: "transparent", fillColor: COLORS.maskColor, fillOpacity: COLORS.maskOpacity, interactive: false }
+      ).addTo(map);
+
+      // Draw boundary lines for all selected counties
+      countyBoundaryLayer = L.geoJSON({ type: "FeatureCollection", features: selected }, {
+        pane: "districtPane", interactive: false,
+        style: { color: COLORS.district, weight: 2, fillOpacity: 0, dashArray: "6 4" },
+      }).addTo(map);
+
+      // Zoom to fit all selected counties
+      map.fitBounds(countyBoundaryLayer.getBounds(), { padding: [30, 30] });
+    };
+
+    if (_ucCountiesGeoJSON) {
+      doApply(_ucCountiesGeoJSON);
+    } else {
+      fetch(countyGeoUrl)
+        .then(function (r) { return r.json(); })
+        .then(function (data) { _ucCountiesGeoJSON = data; doApply(data); })
+        .catch(function () { _applyCountiesPan(counties); });
+    }
+  };
+
+  function _applyCountiesPan(counties) {
     if (counties.length === 1 && UC_COUNTY_CENTROIDS[counties[0]]) {
       map.setView(UC_COUNTY_CENTROIDS[counties[0]], 12);
     } else {
@@ -295,7 +356,7 @@
         .map(function (c) { return UC_COUNTY_CENTROIDS[c]; });
       if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [60, 60] });
     }
-  };
+  }
 
   // Expose for settings modal real-time toggling
   window.mapDistrictToggle = function (slug, visible) {
@@ -361,19 +422,12 @@
       }
     }
 
-    // No specific districts saved (all visible) — fall back to county centroid(s)
+    // No specific districts saved (all visible) — fall back to county selection
     var counties = prefs.default_counties && prefs.default_counties.length
       ? prefs.default_counties
       : (prefs.default_county ? [prefs.default_county] : []);  // legacy single-value fallback
-    if (counties.length === 1 && UC_COUNTY_CENTROIDS[counties[0]]) {
-      map.setView(UC_COUNTY_CENTROIDS[counties[0]], 12);
-    } else if (counties.length > 1) {
-      var points = counties.filter(function (c) { return UC_COUNTY_CENTROIDS[c]; })
-                           .map(function (c) { return UC_COUNTY_CENTROIDS[c]; });
-      if (points.length) {
-        var latBounds = L.latLngBounds(points);
-        map.fitBounds(latBounds, { padding: [60, 60] });
-      }
+    if (counties.length) {
+      window.mapApplyCounties(counties);
     }
   }
 

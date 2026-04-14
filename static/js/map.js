@@ -284,6 +284,19 @@
   // Map of slug → Leaflet layer, populated after loadDistricts()
   var districtLayers = {};
 
+  // Expose for settings modal — pan/zoom map to a set of county names immediately
+  window.mapApplyCounties = function (counties) {
+    if (!counties || !counties.length) return;
+    if (counties.length === 1 && UC_COUNTY_CENTROIDS[counties[0]]) {
+      map.setView(UC_COUNTY_CENTROIDS[counties[0]], 12);
+    } else {
+      var pts = counties
+        .filter(function (c) { return UC_COUNTY_CENTROIDS[c]; })
+        .map(function (c) { return UC_COUNTY_CENTROIDS[c]; });
+      if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [60, 60] });
+    }
+  };
+
   // Expose for settings modal real-time toggling
   window.mapDistrictToggle = function (slug, visible) {
     var layer = districtLayers[slug];

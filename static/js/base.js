@@ -243,6 +243,12 @@
           body: JSON.stringify({ default_counties: countiesToSave, visible_district_slugs: slugsToSave }),
         }).then(function () {
           setSettingsStatus("Preferences saved.", "success");
+          // Immediately update the map to reflect the chosen counties (don't wait for reload).
+          // Use checkedCounties (actual selection) not countiesToSave, because countiesToSave
+          // is [] when all counties are checked (backend meaning: "no preference").
+          if (checkedCounties.length && window.mapApplyCounties) {
+            window.mapApplyCounties(checkedCounties);
+          }
           setTimeout(function () { U.closeModal("settings-modal"); }, 700);
         }).catch(function (err) {
           setSettingsStatus(err.message || "Failed to save.", "error");

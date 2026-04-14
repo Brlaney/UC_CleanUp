@@ -14,13 +14,22 @@ from django.utils import timezone
 from .middleware import IPBanMiddleware
 from .models import (
     ActivityLog,
+    Badge,
+    Challenge,
+    CleanupEvent,
     CleanupProof,
     District,
+    EventRSVP,
     FeedbackEntry,
     IPBan,
     Photo,
     Profile,
+    ScheduledJobLog,
+    Team,
+    TeamMembership,
     TrashSite,
+    UserBadge,
+    UserMapPreference,
 )
 from .services import assign_district
 from .validators import validate_photo_uploads
@@ -179,6 +188,11 @@ class DistrictModelTests(TestCase):
 
 @override_settings(RATELIMIT_ENABLE=False)
 class DistrictApiTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.delete("districts_api_response")
+        cache.delete("districts_inline_json")
+
     def test_districts_api_returns_active_districts(self):
         District.objects.create(
             name="Active District",
@@ -904,3 +918,1501 @@ class ActivityLogTests(TestCase):
         )
         self.assertIn(ActivityLog.ActivityType.TRASH_REPORTED, types)
         self.assertIn(ActivityLog.ActivityType.TRASH_CLEANED, types)
+
+
+# ---------------------------------------------------------------------------
+# Phase 1A — Impact counter
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class ImpactApiTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="impact-user", password="pass12345")
+
+    def test_impact_api_is_public(self):
+        response = self.client.get(reverse("api_impact"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_impact_api_shape(self):
+        response = self.client.get(reverse("api_impact"))
+        data = response.json()
+        for key in ("bags_collected", "sites_cleaned", "sites_reported", "active_volunteers_this_month"):
+            self.assertIn(key, data)
+
+    def test_impact_api_counts_are_accurate(self):
+        # One pending site
+        site = TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            status=TrashSite.Status.PENDING,
+            created_by=self.user,
+        )
+        # One cleaned site with 5 bags
+        cleaned = TrashSite.objects.create(
+            location=Point(-85.51, 36.17, srid=4326),
+            status=TrashSite.Status.CLEANED,
+            created_by=self.user,
+        )
+        CleanupProof.objects.create(
+            trash_site=cleaned,
+            bags_count=5,
+            created_by=self.user,
+        )
+        # Bust the 5-minute cache so we get fresh counts
+        from django.core.cache import cache
+        cache.delete("impact_stats")
+
+        response = self.client.get(reverse("api_impact"))
+        data = response.json()
+        self.assertEqual(data["sites_reported"], 2)
+        self.assertEqual(data["sites_cleaned"], 1)
+        self.assertEqual(data["bags_collected"], 5)
+
+
+# ---------------------------------------------------------------------------
+# Phase 1B — Heatmap
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class HeatmapApiTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="heat-user", password="pass12345")
+
+    def test_heatmap_api_is_public(self):
+        response = self.client.get(reverse("api_heatmap"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("points", response.json())
+
+    def test_heatmap_excludes_cleaned_sites(self):
+        TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            status=TrashSite.Status.PENDING,
+            severity=TrashSite.Severity.HEAVY,
+            created_by=self.user,
+        )
+        TrashSite.objects.create(
+            location=Point(-85.51, 36.17, srid=4326),
+            status=TrashSite.Status.CLEANED,
+            severity=TrashSite.Severity.HEAVY,
+            created_by=self.user,
+        )
+        response = self.client.get(reverse("api_heatmap"))
+        points = response.json()["points"]
+        self.assertEqual(len(points), 1)
+
+    def test_heatmap_intensity_by_severity(self):
+        for sev, expected_intensity in [("LIGHT", 0.3), ("MEDIUM", 0.6), ("HEAVY", 1.0)]:
+            TrashSite.objects.create(
+                location=Point(-85.50, 36.16, srid=4326),
+                status=TrashSite.Status.PENDING,
+                severity=sev,
+                created_by=self.user,
+            )
+        from django.core.cache import cache
+        cache.clear()
+        response = self.client.get(reverse("api_heatmap"))
+        points = response.json()["points"]
+        intensities = {p[2] for p in points}
+        self.assertIn(0.3, intensities)
+        self.assertIn(0.6, intensities)
+        self.assertIn(1.0, intensities)
+
+
+# ---------------------------------------------------------------------------
+# Phase 1C — Share view
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class ShareViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="share-user", password="pass12345")
+        self.site = TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            title="Litter on Route 70",
+            status=TrashSite.Status.CLEANED,
+            created_by=self.user,
+        )
+
+    def test_share_view_is_public(self):
+        response = self.client.get(reverse("share_site", kwargs={"site_id": self.site.id}))
+        self.assertEqual(response.status_code, 200)
+
+    def test_share_view_404_for_nonexistent_site(self):
+        import uuid
+        response = self.client.get(reverse("share_site", kwargs={"site_id": uuid.uuid4()}))
+        self.assertEqual(response.status_code, 404)
+
+    def test_share_view_contains_og_title(self):
+        response = self.client.get(reverse("share_site", kwargs={"site_id": self.site.id}))
+        self.assertContains(response, "og:title")
+
+
+# ---------------------------------------------------------------------------
+# Phase 2C — Leaderboard
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class LeaderboardViewTests(TestCase):
+    def test_leaderboard_page_is_public(self):
+        response = self.client.get(reverse("leaderboard"))
+        self.assertEqual(response.status_code, 200)
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class LeaderboardApiTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="lb-user", password="pass12345")
+
+    def test_leaderboard_api_is_public(self):
+        response = self.client.get(reverse("api_leaderboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("results", response.json())
+
+    def test_leaderboard_api_period_alltime(self):
+        response = self.client.get(reverse("api_leaderboard"), {"period": "alltime"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("results", response.json())
+
+    def test_leaderboard_masks_private_users(self):
+        # User with public_profile=False (default) submits a cleanup
+        site = TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            status=TrashSite.Status.CLEANED,
+            created_by=self.user,
+        )
+        CleanupProof.objects.create(trash_site=site, bags_count=1, created_by=self.user)
+        # Ensure profile is private
+        self.user.profile.public_profile = False
+        self.user.profile.save()
+
+        response = self.client.get(reverse("api_leaderboard"), {"period": "alltime"})
+        data = response.json()
+        if data["results"]:
+            self.assertEqual(data["results"][0]["username"], "Anonymous")
+
+    def test_leaderboard_shows_public_users(self):
+        self.user.profile.public_profile = True
+        self.user.profile.save()
+        site = TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            status=TrashSite.Status.CLEANED,
+            created_by=self.user,
+        )
+        CleanupProof.objects.create(trash_site=site, bags_count=1, created_by=self.user)
+
+        response = self.client.get(reverse("api_leaderboard"), {"period": "alltime"})
+        data = response.json()
+        usernames = [r["username"] for r in data["results"]]
+        self.assertIn(self.user.username, usernames)
+
+
+# ---------------------------------------------------------------------------
+# Phase 2A — Verify cleanup
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class VerifyApiTests(TestCase):
+    def setUp(self):
+        self.regular = User.objects.create_user(username="regular", password="pass12345")
+        self.coordinator = User.objects.create_user(username="coord", password="pass12345")
+        self.coordinator.profile.role = Profile.Role.COORDINATOR
+        self.coordinator.profile.save()
+        self.admin_user = User.objects.create_user(username="adm", password="pass12345")
+        self.admin_user.profile.role = Profile.Role.ADMIN
+        self.admin_user.profile.save()
+        self.site = TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            status=TrashSite.Status.CLEANED,
+            created_by=self.regular,
+        )
+
+    def test_regular_user_cannot_verify(self):
+        self.client.force_login(self.regular)
+        response = self.client.post(
+            reverse("api_trash_site_verify", kwargs={"site_id": self.site.id}),
+            data=json.dumps({"verification_note": "looks clean"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_coordinator_can_verify(self):
+        self.client.force_login(self.coordinator)
+        response = self.client.post(
+            reverse("api_trash_site_verify", kwargs={"site_id": self.site.id}),
+            data=json.dumps({"verification_note": "Confirmed", "work_order": "WO-001"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.site.refresh_from_db()
+        self.assertIsNotNone(self.site.verified_at)
+        self.assertEqual(self.site.work_order, "WO-001")
+
+    def test_admin_can_verify(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.post(
+            reverse("api_trash_site_verify", kwargs={"site_id": self.site.id}),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_cannot_verify_pending_site(self):
+        self.site.status = TrashSite.Status.PENDING
+        self.site.save()
+        self.client.force_login(self.coordinator)
+        response = self.client.post(
+            reverse("api_trash_site_verify", kwargs={"site_id": self.site.id}),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertIn("error", response.json())
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — Cleanup events + RSVP
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class EventsViewTests(TestCase):
+    def test_events_page_is_public(self):
+        response = self.client.get(reverse("events"))
+        self.assertEqual(response.status_code, 200)
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class EventsApiTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="event-user", password="pass12345")
+        self.other = User.objects.create_user(username="other-user", password="pass12345")
+        self.admin_user = User.objects.create_user(username="event-admin", password="pass12345")
+        self.admin_user.profile.role = Profile.Role.ADMIN
+        self.admin_user.profile.save()
+        self.future_date = (timezone.now() + timedelta(days=7)).isoformat()
+
+    def test_list_events_is_public(self):
+        response = self.client.get(reverse("api_events_list"))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        for key in ("count", "page", "num_pages", "results"):
+            self.assertIn(key, data)
+
+    def test_create_event_requires_auth(self):
+        response = self.client.post(
+            reverse("api_events_list"),
+            data=json.dumps({"title": "Cleanup Day", "lat": "36.16", "lng": "-85.50", "event_date": self.future_date}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_create_event_authenticated(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("api_events_list"),
+            data=json.dumps({
+                "title": "Park Cleanup",
+                "lat": "36.16",
+                "lng": "-85.50",
+                "event_date": self.future_date,
+                "max_attendees": 20,
+            }),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertIn("id", data)
+        self.assertEqual(data["title"], "Park Cleanup")
+        self.assertEqual(data["max_attendees"], 20)
+        self.assertEqual(data["organizer"], self.user.username)
+
+    def test_event_detail_is_public(self):
+        event = CleanupEvent.objects.create(
+            title="Test Event",
+            location=Point(-85.50, 36.16, srid=4326),
+            event_date=timezone.now() + timedelta(days=3),
+            organizer=self.user,
+        )
+        response = self.client.get(reverse("api_event_detail", kwargs={"event_id": event.id}))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        for key in ("id", "title", "event_date", "status", "rsvp_count", "coordinates"):
+            self.assertIn(key, data)
+
+    def test_rsvp_requires_auth(self):
+        event = CleanupEvent.objects.create(
+            title="RSVP Test",
+            location=Point(-85.50, 36.16, srid=4326),
+            event_date=timezone.now() + timedelta(days=3),
+            organizer=self.user,
+        )
+        response = self.client.post(
+            reverse("api_event_rsvp", kwargs={"event_id": event.id}),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_rsvp_creates_record(self):
+        event = CleanupEvent.objects.create(
+            title="RSVP Test",
+            location=Point(-85.50, 36.16, srid=4326),
+            event_date=timezone.now() + timedelta(days=3),
+            organizer=self.user,
+        )
+        self.client.force_login(self.other)
+        response = self.client.post(
+            reverse("api_event_rsvp", kwargs={"event_id": event.id}),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(EventRSVP.objects.filter(event=event).count(), 1)
+        self.assertEqual(response.json()["rsvp_count"], 1)
+
+    def test_duplicate_rsvp_returns_error(self):
+        event = CleanupEvent.objects.create(
+            title="Dupe RSVP",
+            location=Point(-85.50, 36.16, srid=4326),
+            event_date=timezone.now() + timedelta(days=3),
+            organizer=self.user,
+        )
+        EventRSVP.objects.create(event=event, user=self.other)
+        self.client.force_login(self.other)
+        response = self.client.post(
+            reverse("api_event_rsvp", kwargs={"event_id": event.id}),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertIn("error", response.json())
+
+    def test_cancel_rsvp(self):
+        event = CleanupEvent.objects.create(
+            title="Cancel RSVP",
+            location=Point(-85.50, 36.16, srid=4326),
+            event_date=timezone.now() + timedelta(days=3),
+            organizer=self.user,
+        )
+        EventRSVP.objects.create(event=event, user=self.other)
+        self.client.force_login(self.other)
+        response = self.client.delete(
+            reverse("api_event_rsvp", kwargs={"event_id": event.id}),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(EventRSVP.objects.filter(event=event).count(), 0)
+
+    def test_max_attendees_enforced(self):
+        event = CleanupEvent.objects.create(
+            title="Full Event",
+            location=Point(-85.50, 36.16, srid=4326),
+            event_date=timezone.now() + timedelta(days=3),
+            organizer=self.user,
+            max_attendees=1,
+        )
+        EventRSVP.objects.create(event=event, user=self.user)
+        self.client.force_login(self.other)
+        response = self.client.post(
+            reverse("api_event_rsvp", kwargs={"event_id": event.id}),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertIn("error", response.json())
+
+    def test_organizer_can_complete_event(self):
+        event = CleanupEvent.objects.create(
+            title="Complete Me",
+            location=Point(-85.50, 36.16, srid=4326),
+            event_date=timezone.now() + timedelta(days=3),
+            organizer=self.user,
+        )
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("api_event_complete", kwargs={"event_id": event.id}),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], CleanupEvent.Status.COMPLETED)
+
+    def test_non_organizer_cannot_complete_event(self):
+        event = CleanupEvent.objects.create(
+            title="Not Yours",
+            location=Point(-85.50, 36.16, srid=4326),
+            event_date=timezone.now() + timedelta(days=3),
+            organizer=self.user,
+        )
+        self.client.force_login(self.other)
+        response = self.client.post(
+            reverse("api_event_complete", kwargs={"event_id": event.id}),
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_can_complete_any_event(self):
+        event = CleanupEvent.objects.create(
+            title="Admin Complete",
+            location=Point(-85.50, 36.16, srid=4326),
+            event_date=timezone.now() + timedelta(days=3),
+            organizer=self.user,
+        )
+        self.client.force_login(self.admin_user)
+        response = self.client.post(
+            reverse("api_event_complete", kwargs={"event_id": event.id}),
+        )
+        self.assertEqual(response.status_code, 200)
+
+
+# ---------------------------------------------------------------------------
+# Phase 4A — Teams
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class TeamsViewTests(TestCase):
+    def test_teams_page_is_public(self):
+        response = self.client.get(reverse("teams"))
+        self.assertEqual(response.status_code, 200)
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class TeamsApiTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="team-user", password="pass12345")
+        self.other = User.objects.create_user(username="team-other", password="pass12345")
+
+    def test_list_teams_is_public(self):
+        response = self.client.get(reverse("api_teams_list"))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("count", data)
+        self.assertIn("results", data)
+
+    def test_create_team_requires_auth(self):
+        response = self.client.post(
+            reverse("api_teams_list"),
+            data=json.dumps({"name": "Scouts Troop 1"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_create_team_authenticated(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("api_teams_list"),
+            data=json.dumps({"name": "Riverside Cleaners", "org_type": "CIVIC"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertIn("id", data)
+        self.assertEqual(data["name"], "Riverside Cleaners")
+        self.assertEqual(data["org_type"], "CIVIC")
+        self.assertEqual(data["leader"], self.user.username)
+        self.assertEqual(data["member_count"], 1)  # creator is auto-added as leader
+
+    def test_create_team_auto_adds_creator_as_leader(self):
+        self.client.force_login(self.user)
+        self.client.post(
+            reverse("api_teams_list"),
+            data=json.dumps({"name": "Auto Leader Team"}),
+            content_type="application/json",
+        )
+        team = Team.objects.get(name="Auto Leader Team")
+        membership = TeamMembership.objects.get(team=team, user=self.user)
+        self.assertEqual(membership.role, TeamMembership.Role.LEADER)
+
+    def test_duplicate_slug_returns_error(self):
+        Team.objects.create(name="Existing Team", slug="existing-team")
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("api_teams_list"),
+            data=json.dumps({"name": "Existing Team", "slug": "existing-team"}),
+            content_type="application/json",
+        )
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertIn("error", response.json())
+
+    def test_team_detail_is_public(self):
+        team = Team.objects.create(name="Public Team", slug="public-team")
+        response = self.client.get(reverse("api_team_detail", kwargs={"team_slug": "public-team"}))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        for key in ("id", "name", "slug", "org_type", "member_count"):
+            self.assertIn(key, data)
+
+    def test_join_team_requires_auth(self):
+        team = Team.objects.create(name="Auth Team", slug="auth-team")
+        response = self.client.post(reverse("api_team_join", kwargs={"team_slug": "auth-team"}))
+        self.assertEqual(response.status_code, 302)  # login redirect
+
+    def test_join_team_creates_membership(self):
+        team = Team.objects.create(name="Join Team", slug="join-team", leader=self.user)
+        self.client.force_login(self.other)
+        response = self.client.post(reverse("api_team_join", kwargs={"team_slug": "join-team"}))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(TeamMembership.objects.filter(team=team, user=self.other).exists())
+
+    def test_duplicate_join_returns_error(self):
+        team = Team.objects.create(name="No Dupe Team", slug="no-dupe-team")
+        TeamMembership.objects.create(team=team, user=self.other)
+        self.client.force_login(self.other)
+        response = self.client.post(reverse("api_team_join", kwargs={"team_slug": "no-dupe-team"}))
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertIn("error", response.json())
+
+
+# ---------------------------------------------------------------------------
+# Phase 5E — Badges
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class BadgesApiTests(TestCase):
+    def test_badges_api_is_public(self):
+        response = self.client.get(reverse("api_badges"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("results", response.json())
+
+    def test_badges_api_shows_earned_status_for_auth_user(self):
+        user = User.objects.create_user(username="badge-user", password="pass12345")
+        badge = Badge.objects.create(slug="first-cleanup", name="First Cleanup", description="Cleaned a site", icon="x")
+        UserBadge.objects.create(user=user, badge=badge)
+
+        self.client.force_login(user)
+        response = self.client.get(reverse("api_badges"))
+        data = response.json()
+        earned = [b for b in data["results"] if b["slug"] == "first-cleanup"]
+        self.assertEqual(len(earned), 1)
+        self.assertTrue(earned[0]["earned"])
+
+
+# ---------------------------------------------------------------------------
+# Phase 5F — Challenges
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class ChallengesViewTests(TestCase):
+    def test_challenges_page_is_public(self):
+        response = self.client.get(reverse("challenges"))
+        self.assertEqual(response.status_code, 200)
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class ChallengesApiTests(TestCase):
+    def setUp(self):
+        self.challenge = Challenge.objects.create(
+            name="Spring Clean",
+            slug="spring-clean",
+            start_date=timezone.now().date(),
+            end_date=(timezone.now() + timedelta(days=30)).date(),
+            bag_goal=100,
+            status=Challenge.Status.ACTIVE,
+        )
+
+    def test_list_challenges_is_public(self):
+        response = self.client.get(reverse("api_challenges_list"))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+
+    def test_challenge_detail_is_public(self):
+        response = self.client.get(
+            reverse("api_challenge_detail", kwargs={"challenge_slug": "spring-clean"})
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        for key in ("name", "slug", "bag_goal", "status"):
+            self.assertIn(key, data)
+
+    def test_challenge_detail_404_for_unknown_slug(self):
+        response = self.client.get(
+            reverse("api_challenge_detail", kwargs={"challenge_slug": "not-a-real-challenge"})
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_completed_challenges_excluded_from_list(self):
+        Challenge.objects.create(
+            name="Old Challenge",
+            slug="old-challenge",
+            start_date=(timezone.now() - timedelta(days=60)).date(),
+            end_date=(timezone.now() - timedelta(days=30)).date(),
+            bag_goal=50,
+            status=Challenge.Status.COMPLETED,
+        )
+        response = self.client.get(reverse("api_challenges_list"))
+        slugs = [r["slug"] for r in response.json()["results"]]
+        self.assertIn("spring-clean", slugs)
+        self.assertNotIn("old-challenge", slugs)
+
+
+# ---------------------------------------------------------------------------
+# Phase 5H — Embed map
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class EmbedMapTests(TestCase):
+    def test_embed_is_public(self):
+        response = self.client.get(reverse("embed_map"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_embed_allows_iframes(self):
+        response = self.client.get(reverse("embed_map"))
+        # xframe_options_exempt means X-Frame-Options is NOT set to DENY/SAMEORIGIN
+        self.assertNotEqual(response.get("X-Frame-Options", ""), "DENY")
+        self.assertNotEqual(response.get("X-Frame-Options", ""), "SAMEORIGIN")
+
+
+# ---------------------------------------------------------------------------
+# Phase 5B — Cron health check
+# ---------------------------------------------------------------------------
+class HealthzCronTests(TestCase):
+    def test_healthz_cron_is_public(self):
+        response = self.client.get(reverse("healthz_cron"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("jobs", response.json())
+
+    def test_healthz_cron_shows_job_status(self):
+        ScheduledJobLog.objects.create(
+            job_name="send_monthly_report",
+            last_status="ok",
+            last_run_at=timezone.now(),
+        )
+        response = self.client.get(reverse("healthz_cron"))
+        jobs = response.json()["jobs"]
+        self.assertIn("send_monthly_report", jobs)
+        job = jobs["send_monthly_report"]
+        for key in ("last_run_at", "last_success_at", "status"):
+            self.assertIn(key, job)
+        self.assertEqual(job["status"], "ok")
+
+
+# ---------------------------------------------------------------------------
+# Phase 6A — Coordinator dashboard
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class DashboardViewTests(TestCase):
+    def setUp(self):
+        self.regular = User.objects.create_user(username="dash-regular", password="pass12345")
+        self.coordinator = User.objects.create_user(username="dash-coord", password="pass12345")
+        self.coordinator.profile.role = Profile.Role.COORDINATOR
+        self.coordinator.profile.save()
+        self.admin_user = User.objects.create_user(username="dash-admin", password="pass12345")
+        self.admin_user.profile.role = Profile.Role.ADMIN
+        self.admin_user.profile.save()
+        self.staff = User.objects.create_user(username="dash-staff", password="pass12345", is_staff=True)
+
+    def test_anonymous_redirected(self):
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("login", response["Location"])
+
+    def test_regular_user_gets_403(self):
+        self.client.force_login(self.regular)
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_coordinator_sees_dashboard(self):
+        self.client.force_login(self.coordinator)
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_admin_sees_dashboard(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_staff_sees_dashboard(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+
+
+# ---------------------------------------------------------------------------
+# Phase 6B — Data export
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class ExportApiTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="export-user", password="pass12345")
+        self.coordinator = User.objects.create_user(username="export-coord", password="pass12345")
+        self.coordinator.profile.role = Profile.Role.COORDINATOR
+        self.coordinator.profile.save()
+        TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            title="Export Site",
+            status=TrashSite.Status.PENDING,
+            created_by=self.user,
+        )
+
+    def test_export_requires_auth(self):
+        response = self.client.get(reverse("api_export_sites", kwargs={"fmt": "csv"}))
+        self.assertEqual(response.status_code, 302)
+
+    def test_export_csv_returns_csv_content_type(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("api_export_sites", kwargs={"fmt": "csv"}))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/csv", response["Content-Type"])
+
+    def test_export_csv_has_header_row(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("api_export_sites", kwargs={"fmt": "csv"}))
+        content = response.content.decode("utf-8")
+        first_line = content.splitlines()[0]
+        self.assertIn("id", first_line)
+        self.assertIn("status", first_line)
+
+    def test_export_geojson_returns_geojson_content_type(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("api_export_sites", kwargs={"fmt": "geojson"}))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("geo+json", response["Content-Type"])
+
+    def test_export_geojson_is_valid_feature_collection(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("api_export_sites", kwargs={"fmt": "geojson"}))
+        data = json.loads(response.content)
+        self.assertEqual(data["type"], "FeatureCollection")
+        self.assertIn("features", data)
+
+    def test_export_invalid_format_returns_404(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("api_export_sites", kwargs={"fmt": "xml"}))
+        self.assertEqual(response.status_code, 404)
+
+    def test_coordinator_can_export_all_statuses(self):
+        self.client.force_login(self.coordinator)
+        response = self.client.get(reverse("api_export_sites", kwargs={"fmt": "csv"}))
+        self.assertEqual(response.status_code, 200)
+
+
+# ---------------------------------------------------------------------------
+# Phase 6C — District stats API
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class DistrictStatsApiTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="stats-user", password="pass12345")
+        self.district = District.objects.create(
+            name="Test District",
+            slug="test-district",
+            geometry=TEST_DISTRICT_GEOM,
+        )
+
+    def test_district_stats_is_public(self):
+        response = self.client.get(
+            reverse("api_district_stats", kwargs={"district_slug": "test-district"})
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_district_stats_shape(self):
+        response = self.client.get(
+            reverse("api_district_stats", kwargs={"district_slug": "test-district"})
+        )
+        data = response.json()
+        for key in ("slug", "name", "site_count", "cleaned_count", "pending_count",
+                    "chronic_count", "bags_total", "top_volunteers", "recent_cleanups"):
+            self.assertIn(key, data)
+
+    def test_district_stats_counts_accurately(self):
+        TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            status=TrashSite.Status.PENDING,
+            district=self.district,
+            created_by=self.user,
+        )
+        cleaned = TrashSite.objects.create(
+            location=Point(-85.51, 36.17, srid=4326),
+            status=TrashSite.Status.CLEANED,
+            district=self.district,
+            created_by=self.user,
+        )
+        CleanupProof.objects.create(trash_site=cleaned, bags_count=3, created_by=self.user)
+
+        response = self.client.get(
+            reverse("api_district_stats", kwargs={"district_slug": "test-district"})
+        )
+        data = response.json()
+        self.assertEqual(data["site_count"], 2)
+        self.assertEqual(data["cleaned_count"], 1)
+        self.assertEqual(data["pending_count"], 1)
+        self.assertEqual(data["bags_total"], 3)
+
+    def test_district_stats_404_for_inactive(self):
+        District.objects.create(
+            name="Inactive",
+            slug="inactive-district",
+            geometry=TEST_DISTRICT_GEOM,
+            active=False,
+        )
+        response = self.client.get(
+            reverse("api_district_stats", kwargs={"district_slug": "inactive-district"})
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_district_stats_404_for_unknown_slug(self):
+        response = self.client.get(
+            reverse("api_district_stats", kwargs={"district_slug": "does-not-exist"})
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+# ---------------------------------------------------------------------------
+# Phase 6C — District HTML pages
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class DistrictPageTests(TestCase):
+    def setUp(self):
+        self.district = District.objects.create(
+            name="Test District",
+            slug="test-district",
+            geometry=TEST_DISTRICT_GEOM,
+        )
+
+    def test_districts_list_page_is_public(self):
+        response = self.client.get(reverse("districts"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_district_detail_page_is_public(self):
+        response = self.client.get(
+            reverse("district_detail", kwargs={"district_slug": "test-district"})
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_district_detail_page_404_for_inactive(self):
+        District.objects.create(
+            name="Inactive District",
+            slug="inactive-d",
+            geometry=TEST_DISTRICT_GEOM,
+            active=False,
+        )
+        response = self.client.get(
+            reverse("district_detail", kwargs={"district_slug": "inactive-d"})
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+# ---------------------------------------------------------------------------
+# Preferences API (multi-county)
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class PreferencesApiTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="pref-user", password="pass12345")
+
+    def test_preferences_requires_auth(self):
+        response = self.client.get(reverse("api_preferences"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_preferences_get_shape(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("api_preferences"))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        for key in ("default_counties", "visible_district_slugs", "public_profile"):
+            self.assertIn(key, data)
+        self.assertIsInstance(data["default_counties"], list)
+
+    def test_preferences_save_default_counties(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("api_preferences"),
+            data=json.dumps({"default_counties": ["Putnam", "White"], "visible_district_slugs": []}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        pref = UserMapPreference.objects.get(user=self.user)
+        self.assertEqual(pref.default_counties, ["Putnam", "White"])
+
+    def test_preferences_save_visible_slugs(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("api_preferences"),
+            data=json.dumps({"default_counties": [], "visible_district_slugs": ["district-1"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        pref = UserMapPreference.objects.get(user=self.user)
+        self.assertEqual(pref.visible_district_slugs, ["district-1"])
+
+    def test_preferences_empty_counties_saves_empty_list(self):
+        self.client.force_login(self.user)
+        # First save some counties
+        self.client.post(
+            reverse("api_preferences"),
+            data=json.dumps({"default_counties": ["Putnam"], "visible_district_slugs": []}),
+            content_type="application/json",
+        )
+        # Then clear them
+        self.client.post(
+            reverse("api_preferences"),
+            data=json.dumps({"default_counties": [], "visible_district_slugs": []}),
+            content_type="application/json",
+        )
+        pref = UserMapPreference.objects.get(user=self.user)
+        self.assertEqual(pref.default_counties, [])
+
+
+# ---------------------------------------------------------------------------
+# Pages — about, profile, service worker
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class AboutPageTests(TestCase):
+    def test_about_page_is_public(self):
+        response = self.client.get(reverse("about"))
+        self.assertEqual(response.status_code, 200)
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class ProfilePageTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="profile-page-user", password="pass12345")
+
+    def test_profile_requires_auth(self):
+        response = self.client.get(reverse("profile"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("login", response["Location"])
+
+    def test_profile_renders_for_auth_user(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("profile"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_profile_shows_report_and_cleanup_counts(self):
+        self.client.force_login(self.user)
+        site = TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            status=TrashSite.Status.CLEANED,
+            created_by=self.user,
+        )
+        CleanupProof.objects.create(trash_site=site, bags_count=2, created_by=self.user)
+        response = self.client.get(reverse("profile"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("reports_count", response.context)
+        self.assertIn("cleanups_count", response.context)
+        self.assertEqual(response.context["reports_count"], 1)
+        self.assertEqual(response.context["cleanups_count"], 1)
+
+
+class ServiceWorkerTests(TestCase):
+    def test_sw_js_returns_javascript(self):
+        response = self.client.get(reverse("service_worker"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("javascript", response["Content-Type"])
+
+    def test_sw_js_has_no_cache_headers(self):
+        response = self.client.get(reverse("service_worker"))
+        self.assertIn("no-cache", response["Cache-Control"])
+
+    def test_sw_js_has_service_worker_allowed_header(self):
+        response = self.client.get(reverse("service_worker"))
+        self.assertEqual(response["Service-Worker-Allowed"], "/")
+
+
+# ---------------------------------------------------------------------------
+# Event flyer
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class EventFlyerTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="flyer-user", password="pass12345")
+        self.event = CleanupEvent.objects.create(
+            title="Flyer Event",
+            location=Point(-85.50, 36.16, srid=4326),
+            event_date=timezone.now() + timedelta(days=7),
+            organizer=self.user,
+        )
+
+    def test_flyer_is_public(self):
+        response = self.client.get(
+            reverse("api_event_flyer", kwargs={"event_id": self.event.id})
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_flyer_renders_event_title(self):
+        response = self.client.get(
+            reverse("api_event_flyer", kwargs={"event_id": self.event.id})
+        )
+        self.assertContains(response, "Flyer Event")
+
+    def test_flyer_404_for_unknown_event(self):
+        import uuid
+        response = self.client.get(
+            reverse("api_event_flyer", kwargs={"event_id": uuid.uuid4()})
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+# ---------------------------------------------------------------------------
+# Push notifications
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class PushVapidKeyTests(TestCase):
+    def test_vapid_key_returns_503_when_not_configured(self):
+        with self.settings(VAPID_PUBLIC_KEY=""):
+            response = self.client.get(reverse("api_push_vapid_key"))
+            self.assertEqual(response.status_code, 503)
+
+    def test_vapid_key_returns_key_when_configured(self):
+        with self.settings(VAPID_PUBLIC_KEY="test-public-key-abc123"):
+            response = self.client.get(reverse("api_push_vapid_key"))
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["vapid_public_key"], "test-public-key-abc123")
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class PushSubscribeTests(TestCase):
+    def _payload(self, **kwargs):
+        base = {"endpoint": "https://push.example.com/sub/1", "p256dh": "key123", "auth": "auth456"}
+        base.update(kwargs)
+        return base
+
+    def test_subscribe_creates_subscription(self):
+        from .models import PushSubscription
+        response = self.client.post(
+            reverse("api_push_subscribe"),
+            data=json.dumps(self._payload()),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.json()["subscribed"])
+        self.assertEqual(PushSubscription.objects.count(), 1)
+
+    def test_subscribe_missing_fields_returns_error(self):
+        response = self.client.post(
+            reverse("api_push_subscribe"),
+            data=json.dumps({"endpoint": "https://push.example.com/sub/2"}),
+            content_type="application/json",
+        )
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertIn("error", response.json())
+
+    def test_subscribe_same_endpoint_updates_not_duplicates(self):
+        from .models import PushSubscription
+        self.client.post(
+            reverse("api_push_subscribe"),
+            data=json.dumps(self._payload()),
+            content_type="application/json",
+        )
+        response = self.client.post(
+            reverse("api_push_subscribe"),
+            data=json.dumps(self._payload(p256dh="newkey")),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)  # update, not create
+        self.assertEqual(PushSubscription.objects.count(), 1)
+        self.assertEqual(PushSubscription.objects.first().p256dh, "newkey")
+
+    def test_subscribe_with_location(self):
+        from .models import PushSubscription
+        response = self.client.post(
+            reverse("api_push_subscribe"),
+            data=json.dumps(self._payload(lat="36.16", lng="-85.50", radius_miles="5.0")),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        sub = PushSubscription.objects.first()
+        self.assertIsNotNone(sub.saved_location)
+        self.assertEqual(sub.notification_radius_miles, 5.0)
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class PushUnsubscribeTests(TestCase):
+    def setUp(self):
+        from .models import PushSubscription
+        PushSubscription.objects.create(
+            endpoint="https://push.example.com/sub/del",
+            p256dh="k",
+            auth_key="a",
+        )
+
+    def test_unsubscribe_deletes_subscription(self):
+        from .models import PushSubscription
+        response = self.client.post(
+            reverse("api_push_unsubscribe"),
+            data=json.dumps({"endpoint": "https://push.example.com/sub/del"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["unsubscribed"])
+        self.assertEqual(PushSubscription.objects.count(), 0)
+
+    def test_unsubscribe_missing_endpoint_returns_error(self):
+        response = self.client.post(
+            reverse("api_push_unsubscribe"),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertIn("error", response.json())
+
+    def test_unsubscribe_nonexistent_endpoint_is_safe(self):
+        response = self.client.post(
+            reverse("api_push_unsubscribe"),
+            data=json.dumps({"endpoint": "https://push.example.com/not-there"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+
+# ---------------------------------------------------------------------------
+# Team certificate page
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class TeamCertificateTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="cert-user", password="pass12345")
+        self.team = Team.objects.create(name="Cert Team", slug="cert-team", leader=self.user)
+
+    def test_certificate_is_public(self):
+        response = self.client.get(
+            reverse("team_certificate", kwargs={"team_slug": "cert-team"})
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_certificate_passes_stats(self):
+        response = self.client.get(
+            reverse("team_certificate", kwargs={"team_slug": "cert-team"})
+        )
+        self.assertIn("stats", response.context)
+        self.assertIn("site_count", response.context["stats"])
+        self.assertIn("cleanup_count", response.context["stats"])
+        self.assertIn("bags_total", response.context["stats"])
+        self.assertIn("member_count", response.context["stats"])
+
+    def test_certificate_404_for_unknown_slug(self):
+        response = self.client.get(
+            reverse("team_certificate", kwargs={"team_slug": "no-such-team"})
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+# ---------------------------------------------------------------------------
+# Detail API — verified fields, timeline, trajectory
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class TrashSiteDetailFieldTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="detail-field-user", password="pass12345")
+        self.site = TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            title="Field Check",
+            status=TrashSite.Status.PENDING,
+            created_by=self.user,
+        )
+
+    def test_detail_includes_timeline_and_trajectory(self):
+        response = self.client.get(
+            reverse("api_trash_site_detail", kwargs={"site_id": self.site.id})
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("timeline", data)
+        self.assertIn("trajectory", data)
+        self.assertIsInstance(data["timeline"], list)
+
+    def test_detail_verified_fields_null_before_verification(self):
+        response = self.client.get(
+            reverse("api_trash_site_detail", kwargs={"site_id": self.site.id})
+        )
+        data = response.json()
+        self.assertIsNone(data["verified_by"])
+        self.assertIsNone(data["verified_at"])
+
+    def test_detail_verified_fields_populated_after_verification(self):
+        coordinator = User.objects.create_user(username="coord-detail", password="pass12345")
+        coordinator.profile.role = Profile.Role.COORDINATOR
+        coordinator.profile.save()
+        self.site.status = TrashSite.Status.CLEANED
+        self.site.save()
+        self.client.force_login(coordinator)
+        self.client.post(
+            reverse("api_trash_site_verify", kwargs={"site_id": self.site.id}),
+            data=json.dumps({"work_order": "WO-999"}),
+            content_type="application/json",
+        )
+        response = self.client.get(
+            reverse("api_trash_site_detail", kwargs={"site_id": self.site.id})
+        )
+        data = response.json()
+        self.assertEqual(data["verified_by"], coordinator.username)
+        self.assertIsNotNone(data["verified_at"])
+
+    def test_detail_404_for_unknown_site(self):
+        import uuid
+        response = self.client.get(
+            reverse("api_trash_site_detail", kwargs={"site_id": uuid.uuid4()})
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_timeline_has_reported_event(self):
+        response = self.client.get(
+            reverse("api_trash_site_detail", kwargs={"site_id": self.site.id})
+        )
+        timeline = response.json()["timeline"]
+        types = [e["type"] for e in timeline]
+        self.assertIn("reported", types)
+
+
+# ---------------------------------------------------------------------------
+# RSVP on non-SCHEDULED event
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class EventRSVPStateTests(TestCase):
+    def setUp(self):
+        self.organizer = User.objects.create_user(username="rsvp-org", password="pass12345")
+        self.attendee = User.objects.create_user(username="rsvp-att", password="pass12345")
+
+    def test_rsvp_rejected_for_completed_event(self):
+        event = CleanupEvent.objects.create(
+            title="Done Event",
+            location=Point(-85.50, 36.16, srid=4326),
+            event_date=timezone.now() - timedelta(days=1),
+            organizer=self.organizer,
+            status=CleanupEvent.Status.COMPLETED,
+        )
+        self.client.force_login(self.attendee)
+        response = self.client.post(
+            reverse("api_event_rsvp", kwargs={"event_id": event.id}),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertIn("error", response.json())
+
+    def test_rsvp_rejected_for_cancelled_event(self):
+        event = CleanupEvent.objects.create(
+            title="Cancelled Event",
+            location=Point(-85.50, 36.16, srid=4326),
+            event_date=timezone.now() + timedelta(days=3),
+            organizer=self.organizer,
+            status=CleanupEvent.Status.CANCELLED,
+        )
+        self.client.force_login(self.attendee)
+        response = self.client.post(
+            reverse("api_event_rsvp", kwargs={"event_id": event.id}),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertIn("error", response.json())
+
+    def test_event_detail_404_for_unknown_id(self):
+        import uuid
+        response = self.client.get(
+            reverse("api_event_detail", kwargs={"event_id": uuid.uuid4()})
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+# ---------------------------------------------------------------------------
+# 404 on unknown slugs / IDs
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class NotFoundTests(TestCase):
+    def test_team_detail_404_for_unknown_slug(self):
+        response = self.client.get(
+            reverse("api_team_detail", kwargs={"team_slug": "ghost-team"})
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_team_page_404_for_unknown_slug(self):
+        response = self.client.get(
+            reverse("team", kwargs={"team_slug": "ghost-team"})
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+# ---------------------------------------------------------------------------
+# Services — check_and_award_badges, record_job_run
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class BadgeServiceTests(TestCase):
+    def setUp(self):
+        from .services import _ensure_badges
+        _ensure_badges()
+        self.user = User.objects.create_user(username="badge-svc-user", password="pass12345")
+
+    def test_first_cleanup_badge_awarded_after_one_proof(self):
+        from .services import check_and_award_badges
+        site = TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            status=TrashSite.Status.CLEANED,
+            created_by=self.user,
+        )
+        CleanupProof.objects.create(trash_site=site, bags_count=1, created_by=self.user)
+        check_and_award_badges(self.user)
+        self.assertTrue(UserBadge.objects.filter(user=self.user, badge__slug="first-cleanup").exists())
+
+    def test_five_cleanups_badge_awarded_at_threshold(self):
+        from .services import check_and_award_badges
+        for _ in range(5):
+            site = TrashSite.objects.create(
+                location=Point(-85.50, 36.16, srid=4326),
+                status=TrashSite.Status.CLEANED,
+                created_by=self.user,
+            )
+            CleanupProof.objects.create(trash_site=site, bags_count=1, created_by=self.user)
+        check_and_award_badges(self.user)
+        self.assertTrue(UserBadge.objects.filter(user=self.user, badge__slug="five-cleanups").exists())
+
+    def test_five_cleanups_badge_not_awarded_below_threshold(self):
+        from .services import check_and_award_badges
+        site = TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            status=TrashSite.Status.CLEANED,
+            created_by=self.user,
+        )
+        CleanupProof.objects.create(trash_site=site, bags_count=1, created_by=self.user)
+        check_and_award_badges(self.user)
+        self.assertFalse(UserBadge.objects.filter(user=self.user, badge__slug="five-cleanups").exists())
+
+    def test_hazard_reporter_badge_awarded(self):
+        from .services import check_and_award_badges
+        TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            hazard_flag=True,
+            created_by=self.user,
+        )
+        check_and_award_badges(self.user)
+        self.assertTrue(UserBadge.objects.filter(user=self.user, badge__slug="hazard-reporter").exists())
+
+    def test_team_founder_badge_awarded(self):
+        from .services import check_and_award_badges
+        Team.objects.create(name="My Team", slug="my-team", leader=self.user)
+        check_and_award_badges(self.user)
+        self.assertTrue(UserBadge.objects.filter(user=self.user, badge__slug="team-founder").exists())
+
+    def test_event_organizer_badge_awarded(self):
+        from .services import check_and_award_badges
+        CleanupEvent.objects.create(
+            title="Org Event",
+            location=Point(-85.50, 36.16, srid=4326),
+            event_date=timezone.now() + timedelta(days=5),
+            organizer=self.user,
+        )
+        check_and_award_badges(self.user)
+        self.assertTrue(UserBadge.objects.filter(user=self.user, badge__slug="event-organizer").exists())
+
+    def test_badge_not_duplicated_on_repeated_call(self):
+        from .services import check_and_award_badges
+        site = TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            status=TrashSite.Status.CLEANED,
+            created_by=self.user,
+        )
+        CleanupProof.objects.create(trash_site=site, bags_count=1, created_by=self.user)
+        check_and_award_badges(self.user)
+        check_and_award_badges(self.user)
+        self.assertEqual(
+            UserBadge.objects.filter(user=self.user, badge__slug="first-cleanup").count(), 1
+        )
+
+
+class RecordJobRunTests(TestCase):
+    def test_record_success_creates_log(self):
+        from .services import record_job_run
+        record_job_run("test_job", success=True)
+        log = ScheduledJobLog.objects.get(job_name="test_job")
+        self.assertEqual(log.last_status, "ok")
+        self.assertIsNotNone(log.last_run_at)
+        self.assertIsNotNone(log.last_success_at)
+        self.assertEqual(log.last_error, "")
+
+    def test_record_failure_sets_error(self):
+        from .services import record_job_run
+        record_job_run("test_job_fail", success=False, error="Something broke")
+        log = ScheduledJobLog.objects.get(job_name="test_job_fail")
+        self.assertEqual(log.last_status, "error")
+        self.assertIsNone(log.last_success_at)
+        self.assertEqual(log.last_error, "Something broke")
+
+    def test_record_run_updates_existing_log(self):
+        from .services import record_job_run
+        record_job_run("idempotent_job", success=False, error="first error")
+        record_job_run("idempotent_job", success=True)
+        self.assertEqual(ScheduledJobLog.objects.filter(job_name="idempotent_job").count(), 1)
+        log = ScheduledJobLog.objects.get(job_name="idempotent_job")
+        self.assertEqual(log.last_status, "ok")
+
+
+# ---------------------------------------------------------------------------
+# Leaderboard — month period excludes old cleanups
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class LeaderboardMonthFilterTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="lb-month-user", password="pass12345")
+        self.user.profile.public_profile = True
+        self.user.profile.save()
+
+    def test_month_period_excludes_prior_month_cleanups(self):
+        site = TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            status=TrashSite.Status.CLEANED,
+            created_by=self.user,
+        )
+        proof = CleanupProof.objects.create(
+            trash_site=site, bags_count=1, created_by=self.user
+        )
+        # Back-date the proof to last month
+        CleanupProof.objects.filter(pk=proof.pk).update(
+            created_at=timezone.now() - timedelta(days=40)
+        )
+        response = self.client.get(reverse("api_leaderboard"), {"period": "month"})
+        usernames = [r["username"] for r in response.json()["results"]]
+        self.assertNotIn(self.user.username, usernames)
+
+    def test_alltime_period_includes_old_cleanups(self):
+        site = TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            status=TrashSite.Status.CLEANED,
+            created_by=self.user,
+        )
+        proof = CleanupProof.objects.create(
+            trash_site=site, bags_count=1, created_by=self.user
+        )
+        CleanupProof.objects.filter(pk=proof.pk).update(
+            created_at=timezone.now() - timedelta(days=40)
+        )
+        response = self.client.get(reverse("api_leaderboard"), {"period": "alltime"})
+        usernames = [r["username"] for r in response.json()["results"]]
+        self.assertIn(self.user.username, usernames)
+
+
+# ---------------------------------------------------------------------------
+# Export — status and district filters
+# ---------------------------------------------------------------------------
+@override_settings(RATELIMIT_ENABLE=False)
+class ExportFilterTests(TestCase):
+    def setUp(self):
+        self.coordinator = User.objects.create_user(username="export-filter-coord", password="pass12345")
+        self.coordinator.profile.role = Profile.Role.COORDINATOR
+        self.coordinator.profile.save()
+        self.district = District.objects.create(
+            name="Export District", slug="export-district", geometry=TEST_DISTRICT_GEOM
+        )
+        self.pending = TrashSite.objects.create(
+            location=Point(-85.50, 36.16, srid=4326),
+            status=TrashSite.Status.PENDING,
+            district=self.district,
+            created_by=self.coordinator,
+        )
+        self.cleaned = TrashSite.objects.create(
+            location=Point(-85.51, 36.17, srid=4326),
+            status=TrashSite.Status.CLEANED,
+            district=self.district,
+            created_by=self.coordinator,
+        )
+
+    def test_export_status_filter(self):
+        self.client.force_login(self.coordinator)
+        response = self.client.get(
+            reverse("api_export_sites", kwargs={"fmt": "csv"}),
+            {"status": "PENDING"},
+        )
+        content = response.content.decode()
+        lines = [l for l in content.splitlines() if l and not l.startswith("id")]
+        self.assertEqual(len(lines), 1)
+
+    def test_export_district_filter(self):
+        other_user = User.objects.create_user(username="export-other", password="pass12345")
+        TrashSite.objects.create(
+            location=Point(-86.00, 36.50, srid=4326),
+            status=TrashSite.Status.PENDING,
+            district=None,
+            created_by=other_user,
+        )
+        self.client.force_login(self.coordinator)
+        response = self.client.get(
+            reverse("api_export_sites", kwargs={"fmt": "csv"}),
+            {"district": "export-district"},
+        )
+        content = response.content.decode()
+        data_lines = [l for l in content.splitlines() if l and not l.startswith("id")]
+        self.assertEqual(len(data_lines), 2)  # pending + cleaned in district

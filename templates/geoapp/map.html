@@ -326,7 +326,8 @@
                 pushVapidKey: "{% url 'api_push_vapid_key' %}",
                 pushSubscribe: "{% url 'api_push_subscribe' %}",
                 pushUnsubscribe: "{% url 'api_push_unsubscribe' %}",
-                preferences: {% if user.is_authenticated %}"{% url 'api_preferences' %}"{% else %}null{% endif %}
+                preferences: {% if user.is_authenticated %}"{% url 'api_preferences' %}"{% else %}null{% endif %},
+                countyGeoUrl: "{% static 'data/upper_cumberland_counties.geojson' %}"
             }
         };
     </script>

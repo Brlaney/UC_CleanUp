@@ -1462,7 +1462,10 @@ class BadgesApiTests(TestCase):
 
     def test_badges_api_shows_earned_status_for_auth_user(self):
         user = User.objects.create_user(username="badge-user", password="pass12345")
-        badge = Badge.objects.create(slug="first-cleanup", name="First Cleanup", description="Cleaned a site", icon="x")
+        badge, _ = Badge.objects.get_or_create(
+            slug="first-cleanup",
+            defaults={"name": "First Cleanup", "description": "Cleaned a site", "icon": "🧹"},
+        )
         UserBadge.objects.create(user=user, badge=badge)
 
         self.client.force_login(user)
@@ -2416,3 +2419,102 @@ class ExportFilterTests(TestCase):
         content = response.content.decode()
         data_lines = [l for l in content.splitlines() if l and not l.startswith("id")]
         self.assertEqual(len(data_lines), 2)  # pending + cleaned in district
+
+
+# ---------------------------------------------------------------------------
+# AppConfig — badge seeding moved to post_migrate signal
+# ---------------------------------------------------------------------------
+class AppConfigSignalTests(TestCase):
+    """_seed_badges must NOT query the DB at import/ready time, only on
+    post_migrate.  We verify the wiring and that the function is idempotent."""
+
+    def test_seed_badges_is_connected_to_post_migrate(self):
+        """ready() must wire _seed_badges to post_migrate, not call it directly."""
+        import inspect
+        from geoapp.apps import GeoappConfig
+        source = inspect.getsource(GeoappConfig.ready)
+        self.assertIn("post_migrate.connect", source,
+                      "ready() must call post_migrate.connect")
+        self.assertIn("_seed_badges", source,
+                      "ready() must pass _seed_badges to post_migrate.connect")
+
+    def test_seed_badges_is_idempotent(self):
+        """Calling _seed_badges twice must not raise and must not duplicate badges."""
+        from geoapp.apps import _seed_badges
+        from geoapp.models import Badge
+
+        _seed_badges(sender=None)
+        count_after_first = Badge.objects.count()
+        _seed_badges(sender=None)
+        count_after_second = Badge.objects.count()
+        self.assertEqual(count_after_first, count_after_second)
+        self.assertGreater(count_after_first, 0)
+
+    def test_ready_does_not_call_ensure_badges_directly(self):
+        """AppConfig.ready() source must not contain a direct _ensure_badges()
+        call — it should only connect the post_migrate signal."""
+        import inspect
+        from geoapp.apps import GeoappConfig
+        source = inspect.getsource(GeoappConfig.ready)
+        self.assertNotIn("_ensure_badges", source,
+                         "ready() must not call _ensure_badges directly")
+
+
+# ---------------------------------------------------------------------------
+# Migration 0013 — Profile.role choices and TeamMembership.id field
+# ---------------------------------------------------------------------------
+class Migration0013Tests(TestCase):
+    """Verify that migration 0013 captures the two expected field alterations."""
+
+    def test_migration_0013_exists(self):
+        from importlib import import_module
+        mod = import_module("geoapp.migrations.0013_alter_profile_role_alter_teammembership_id")
+        self.assertTrue(hasattr(mod, "Migration"))
+
+    def test_migration_0013_dependencies(self):
+        from importlib import import_module
+        mod = import_module("geoapp.migrations.0013_alter_profile_role_alter_teammembership_id")
+        deps = mod.Migration.dependencies
+        self.assertIn(("geoapp", "0012_usermappreference_default_counties"), deps)
+
+    def test_migration_0013_alters_profile_role(self):
+        from importlib import import_module
+        from django.db.migrations.operations.fields import AlterField
+        mod = import_module("geoapp.migrations.0013_alter_profile_role_alter_teammembership_id")
+        ops = mod.Migration.operations
+        profile_role_ops = [
+            op for op in ops
+            if isinstance(op, AlterField)
+            and op.model_name == "profile"
+            and op.name == "role"
+        ]
+        self.assertEqual(len(profile_role_ops), 1)
+        # COORDINATOR must be in the new choices
+        choices = dict(profile_role_ops[0].field.choices)
+        self.assertIn("COORDINATOR", choices)
+
+    def test_migration_0013_alters_teammembership_id(self):
+        from importlib import import_module
+        from django.db.migrations.operations.fields import AlterField
+        mod = import_module("geoapp.migrations.0013_alter_profile_role_alter_teammembership_id")
+        ops = mod.Migration.operations
+        tm_id_ops = [
+            op for op in ops
+            if isinstance(op, AlterField)
+            and op.model_name == "teammembership"
+            and op.name == "id"
+        ]
+        self.assertEqual(len(tm_id_ops), 1)
+
+    def test_no_pending_migrations(self):
+        """makemigrations --check must report no outstanding changes after 0013."""
+        from django.test.utils import override_settings
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        try:
+            call_command("makemigrations", "--check", stdout=out, stderr=out)
+        except SystemExit as e:
+            self.fail(
+                f"Unmigrated model changes detected (exit {e.code}):\n{out.getvalue()}"
+            )

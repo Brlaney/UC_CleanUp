@@ -15,9 +15,10 @@ def _env_list(name, default=""):
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
 DEBUG = os.getenv("DEBUG", "1") == "1"
+_extra_hosts = os.getenv("EXTRA_ALLOWED_HOSTS", "")
 ALLOWED_HOSTS = _env_list(
     "ALLOWED_HOSTS",
-    "uc-cleanup.com,www.uc-cleanup.com,upper-cumberland-cleanup.onrender.com,127.0.0.1,localhost,192.168.1.37",
+    f"uc-cleanup.com,www.uc-cleanup.com,upper-cumberland-cleanup.onrender.com,127.0.0.1,localhost{(',' + _extra_hosts) if _extra_hosts else ''}",
 )
 if DEBUG:
     ALLOWED_HOSTS.append("*")

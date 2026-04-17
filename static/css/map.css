@@ -384,6 +384,89 @@
   color: var(--color-hazard-text);
 }
 
+/* Hazard type picker in report form */
+.hazard-picker {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.hazard-picker legend {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #555);
+  margin-bottom: 0.5rem;
+  padding: 0;
+}
+
+.hazard-picker .field-optional {
+  font-weight: 400;
+  color: var(--color-text-muted, #888);
+}
+
+.hazard-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.hazard-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.6rem 0.4rem;
+  border: 2px solid var(--color-border, #ddd);
+  border-radius: var(--radius-card, 8px);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+  background: var(--color-surface, #fff);
+}
+
+.hazard-option input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.hazard-option:hover {
+  border-color: var(--color-hazard-text, #a7364a);
+  background: var(--color-hazard-bg, #fbe6e9);
+}
+
+.hazard-option:has(input:checked) {
+  border-color: var(--color-hazard-text, #a7364a);
+  background: var(--color-hazard-bg, #fbe6e9);
+}
+
+.hazard-icon {
+  width: 24px !important;
+  height: 40px !important;
+  max-width: 24px;
+  max-height: 40px;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+}
+
+.hazard-icon--other {
+  font-size: 1.5rem;
+  line-height: 40px;
+  display: block;
+  width: 24px;
+  text-align: center;
+}
+
+.hazard-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--color-text, #222);
+}
+
 .detail-meta-grid {
   display: grid;
   grid-template-columns: 1fr;

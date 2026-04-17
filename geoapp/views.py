@@ -236,6 +236,7 @@ def _serialize_trash_site(site, user=None):
         "description": site.description,
         "severity": site.severity,
         "hazard_flag": site.hazard_flag,
+        "hazard_types": site.hazard_types,
         "chronic": site.chronic_site,
         "trajectory": _compute_trajectory(site),
         "created_by": site.created_by.username if site.created_by_id else "Anonymous",
@@ -666,6 +667,10 @@ def trash_site_create_api(request):
     team_slug = str(data.get("team", "")).strip()
     team = Team.objects.filter(slug=team_slug).first() if team_slug else None
 
+    _valid_hazard_types = {"sharps", "vape_device", "vape_pen", "other"}
+    raw_hazard_types = request.POST.getlist("hazard_types")
+    hazard_types = [h for h in raw_hazard_types if h in _valid_hazard_types]
+
     site = TrashSite.objects.create(
         location=point,
         area=area,
@@ -673,7 +678,8 @@ def trash_site_create_api(request):
         title=data.get("title", "").strip(),
         description=data.get("description", "").strip(),
         severity=severity,
-        hazard_flag=_parse_bool(data.get("hazard_flag"), default=False),
+        hazard_flag=bool(hazard_types),
+        hazard_types=hazard_types,
         created_by=request.user,
         team=team,
     )

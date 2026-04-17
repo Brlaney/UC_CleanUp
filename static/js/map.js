@@ -695,7 +695,11 @@
       html += '<div class="detail-badge-row">';
       html += renderBadge(titleCase(site.status), tokenClass(site.status));
       if (site.severity) html += renderBadge(titleCase(site.severity), tokenClass(site.severity));
-      if (site.hazard_flag) html += renderBadge("Hazard", "hazard");
+      if (site.hazard_flag) {
+        var hazardLabels = { sharps: "Sharps / Needles", vape_device: "Vape Device", vape_pen: "Vape Pen", other: "Hazard" };
+        var types = (site.hazard_types && site.hazard_types.length) ? site.hazard_types : ["other"];
+        types.forEach(function(t) { html += renderBadge(hazardLabels[t] || "Hazard", "hazard"); });
+      }
       if (site.chronic) html += '<span class="chronic-badge">Chronic</span>';
       html += '</div></div>';
 

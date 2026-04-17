@@ -243,7 +243,7 @@ class TrashSiteApiLifecycleTests(TestCase):
                 "title": "Roadside litter",
                 "description": "Near greenway entrance",
                 "severity": "MEDIUM",
-                "hazard_flag": "true",
+                "hazard_types": "sharps",
             },
         )
         self.assertEqual(response.status_code, 201)
@@ -253,6 +253,7 @@ class TrashSiteApiLifecycleTests(TestCase):
         self.assertEqual(payload["coordinates"], [-85.5016, 36.1627])
         self.assertEqual(payload["severity"], TrashSite.Severity.MEDIUM)
         self.assertTrue(payload["hazard_flag"])
+        self.assertEqual(payload["hazard_types"], ["sharps"])
 
         site = TrashSite.objects.get(id=payload["id"])
         self.assertEqual(site.location.srid, 4326)

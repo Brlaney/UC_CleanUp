@@ -89,6 +89,7 @@ class TrashSite(models.Model):
     description = models.TextField(blank=True)
     severity = models.CharField(max_length=10, choices=Severity.choices, blank=True)
     hazard_flag = models.BooleanField(default=False)
+    hazard_types = models.JSONField(default=list, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="trash_sites_created")
     claimed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="trash_sites_claimed"

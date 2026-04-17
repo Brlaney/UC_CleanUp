@@ -196,7 +196,31 @@
                 <option value="MEDIUM">Medium</option>
                 <option value="HEAVY">Heavy</option>
             </select>
-            <label class="checkbox-label"><input type="checkbox" name="hazard_flag" value="1"> Hazard present</label>
+            <fieldset class="hazard-picker">
+              <legend>Hazards <span class="field-optional">(optional)</span></legend>
+              <div class="hazard-picker-grid">
+                <label class="hazard-option">
+                  <input type="checkbox" name="hazard_types" value="sharps">
+                  <img src="{% static 'images/icons/hazards/syringe_1.svg' %}" alt="" class="hazard-icon" width="24" height="40">
+                  <span class="hazard-label">Sharps / Needles</span>
+                </label>
+                <label class="hazard-option">
+                  <input type="checkbox" name="hazard_types" value="vape_device">
+                  <img src="{% static 'images/icons/hazards/vape_1.svg' %}" alt="" class="hazard-icon" width="24" height="40">
+                  <span class="hazard-label">Vape Device</span>
+                </label>
+                <label class="hazard-option">
+                  <input type="checkbox" name="hazard_types" value="vape_pen">
+                  <img src="{% static 'images/icons/hazards/vape_2.svg' %}" alt="" class="hazard-icon" width="24" height="40">
+                  <span class="hazard-label">Vape Pen</span>
+                </label>
+                <label class="hazard-option">
+                  <input type="checkbox" name="hazard_types" value="other">
+                  <span class="hazard-icon hazard-icon--other">⚠</span>
+                  <span class="hazard-label">Other</span>
+                </label>
+              </div>
+            </fieldset>
             {% if user.is_authenticated %}
             <label for="trash-team">Team <small style="font-weight:400">(optional)</small></label>
             <select name="team" id="trash-team">

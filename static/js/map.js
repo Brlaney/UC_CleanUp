@@ -707,8 +707,46 @@
     return '<span class="detail-badge detail-badge--' + cls + '">' + U.escapeHtml(label) + '</span>';
   }
 
+  function renderHazardBadge(label) {
+    return '<span class="detail-badge detail-badge--hazard">' +
+      '<span class="detail-badge-icon" aria-hidden="true">⚠</span>' + U.escapeHtml(label) + '</span>';
+  }
+
   function renderMeta(label, value) {
     return '<div class="detail-meta-item"><dt>' + U.escapeHtml(label) + '</dt><dd>' + U.escapeHtml(value) + '</dd></div>';
+  }
+
+  // Like renderMeta but the value is trusted HTML (e.g. a relative-time span).
+  function renderMetaRaw(label, rawValue) {
+    return '<div class="detail-meta-item"><dt>' + U.escapeHtml(label) + '</dt><dd>' + rawValue + '</dd></div>';
+  }
+
+  function _relPhrase(n, unit, future) {
+    var s = n + " " + unit + (n !== 1 ? "s" : "");
+    return future ? "in " + s : s + " ago";
+  }
+
+  function timeAgo(iso) {
+    if (!iso) return "";
+    var diff = Date.now() - new Date(iso).getTime();
+    var future = diff < 0;
+    diff = Math.abs(diff);
+    var mins = Math.round(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return _relPhrase(mins, "minute", future);
+    var hrs = Math.round(mins / 60);
+    if (hrs < 24) return _relPhrase(hrs, "hour", future);
+    var days = Math.round(hrs / 24);
+    if (days < 30) return _relPhrase(days, "day", future);
+    var months = Math.round(days / 30);
+    if (months < 12) return _relPhrase(months, "month", future);
+    return _relPhrase(Math.round(months / 12), "year", future);
+  }
+
+  // Relative time as the primary label, with the absolute timestamp on hover.
+  function relDate(iso) {
+    if (!iso) return "-";
+    return '<span class="rel-time" title="' + U.escapeHtml(formatDate(iso)) + '">' + U.escapeHtml(timeAgo(iso)) + '</span>';
   }
 
   function showDetail(siteId) {
@@ -725,32 +763,29 @@
       html += '<div class="detail-panel-header">';
       html += '<span class="detail-kicker">Trash Site</span>';
       html += '<h3>' + U.escapeHtml(site.title || "Unnamed Site") + '</h3>';
+      // All status/attribute chips share one consistent row.
       html += '<div class="detail-badge-row">';
       html += renderBadge(titleCase(site.status), tokenClass(site.status));
       if (site.severity) html += renderBadge(titleCase(site.severity), tokenClass(site.severity));
       if (site.hazard_flag) {
-        var hazardLabels = { sharps: "Sharps / Needles", vape_device: "Vape Device", vape_pen: "Vape Pen", other: "Hazard" };
+        var hazardLabels = { sharps: "Sharps / Needles", vape_device: "Vape Device", vape_pen: "Vape Pen", other: "Other Hazard" };
         var types = (site.hazard_types && site.hazard_types.length) ? site.hazard_types : ["other"];
-        types.forEach(function(t) { html += renderBadge(hazardLabels[t] || "Hazard", "hazard"); });
+        types.forEach(function(t) { html += renderHazardBadge(hazardLabels[t] || "Hazard"); });
       }
-      if (site.chronic) html += '<span class="chronic-badge">Chronic</span>';
+      if (site.chronic) html += renderBadge("Chronic", "chronic");
+      if (site.verified_at) html += renderBadge("Verified \u2713", "verified");
+      if (site.trajectory && site.trajectory !== "resolved" && site.trajectory !== "stable") {
+        var trajLabel = site.trajectory === "worsening" ? "\u2197 Worsening" : "\u2198 Improving";
+        html += renderBadge(trajLabel, site.trajectory);
+      }
       html += '</div></div>';
 
-      if (site.verified_at) {
-        html += renderBadge("Verified \u2713", "verified");
-      }
-
-      // Trajectory signal (Phase 5D)
-      if (site.trajectory && site.trajectory !== "resolved" && site.trajectory !== "stable") {
-        var trajLabel = site.trajectory === "worsening" ? "\u2197 Getting worse" : "\u2198 Improving";
-        html += '<span class="trajectory-badge trajectory-badge--' + site.trajectory + '">' + trajLabel + '</span> ';
-      }
       html += '<dl class="detail-meta-grid">';
       html += renderMeta("Reported by", site.created_by);
-      html += renderMeta("Created", formatDate(site.created_at));
-      if (site.cleaned_at) html += renderMeta("Cleaned", formatDate(site.cleaned_at));
+      html += renderMetaRaw("Created", relDate(site.created_at));
+      if (site.cleaned_at) html += renderMetaRaw("Cleaned", relDate(site.cleaned_at));
       if (site.verified_at) {
-        html += renderMeta("Verified by", site.verified_by + " on " + formatDate(site.verified_at));
+        html += renderMetaRaw("Verified by", U.escapeHtml(site.verified_by) + " &middot; " + relDate(site.verified_at));
         if (site.work_order) html += renderMeta("Work Order", site.work_order);
       }
       html += '</dl>';
@@ -783,7 +818,7 @@
           html += '<span class="tl-icon" aria-hidden="true">' + (TL_ICONS[ev.type] || "•") + '</span>';
           html += '<div class="tl-body">';
           html += '<span class="tl-label">' + U.escapeHtml(ev.label) + '</span>';
-          html += '<span class="tl-meta">by ' + U.escapeHtml(ev.by) + ' &middot; ' + formatDate(ev.at) + '</span>';
+          html += '<span class="tl-meta">by ' + U.escapeHtml(ev.by) + ' &middot; ' + relDate(ev.at) + '</span>';
           html += '</div></div>';
         });
         html += '</div></div>';
@@ -798,7 +833,7 @@
             html += '<div class="proof-card">';
             html += '<div class="proof-card-top">';
             if (proof.bags_count) html += '<span class="proof-bags">' + proof.bags_count + ' bags</span>';
-            html += '<span class="proof-meta">' + U.escapeHtml(proof.created_by) + ' &middot; ' + formatDate(proof.created_at) + '</span>';
+            html += '<span class="proof-meta">' + U.escapeHtml(proof.created_by) + ' &middot; ' + relDate(proof.created_at) + '</span>';
             html += '</div>';
             if (proof.note) html += '<p class="proof-note">' + U.escapeHtml(proof.note) + '</p>';
             html += '</div>';

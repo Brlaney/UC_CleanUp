@@ -384,6 +384,34 @@
   color: var(--color-hazard-text);
 }
 
+.detail-badge--chronic {
+  background: rgba(153, 27, 27, 0.12);
+  color: #991b1b;
+}
+
+.detail-badge--worsening {
+  background: #fde8dc;
+  color: #9b3a12;
+}
+
+.detail-badge--improving {
+  background: #dcfce7;
+  color: #166534;
+}
+
+/* Small leading icon inside a chip (e.g. hazard warning). */
+.detail-badge-icon {
+  margin-right: 0.3rem;
+  font-size: 0.85em;
+  line-height: 1;
+}
+
+/* Relative timestamps: hint that the absolute time is available on hover. */
+.rel-time {
+  cursor: help;
+  border-bottom: 1px dotted currentColor;
+}
+
 /* Hazard type picker in report form */
 .hazard-picker {
   border: none;

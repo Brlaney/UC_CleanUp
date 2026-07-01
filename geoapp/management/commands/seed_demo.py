@@ -363,8 +363,15 @@ class Command(BaseCommand):
 
     def _create_proofs_and_cleanups(self, sites, users):
         cleaned = [s for s in sites if s.status == TrashSite.Status.CLEANED]
+        # Weight cleanups toward a subset of "power volunteers" so the
+        # leaderboard has a realistic ranked distribution rather than everyone
+        # tied at ~1 cleanup.
+        power = users[: max(3, len(users) // 5)]
         for site in cleaned:
-            cleaner = site.created_by if self.rng.random() < 0.5 else self.rng.choice(users)
+            if self.rng.random() < 0.6:
+                cleaner = self.rng.choice(power)
+            else:
+                cleaner = self.rng.choice(users)
             proof = CleanupProof.objects.create(
                 trash_site=site,
                 note=self.rng.choice([

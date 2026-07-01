@@ -4,12 +4,12 @@ Project-specific guide for coding agents and contributors working on this reposi
 
 ## 1) Mission
 
-Build and maintain a production-ready interactive District 3 (Putnam County Commission) CleanUp Map with two core modes: **Report Trash** and **Cleanup Trash**.
+Build and maintain a production-ready interactive CleanUp map for the **Upper Cumberland region of Tennessee** — currently Putnam County and all 12 Commission Districts — with two core modes: **Report Trash** and **Cleanup Trash**. The district layer is abstracted (`District` model + `/api/districts/`) so coverage can expand to more counties without code changes.
 
 Key priorities:
 
 - Public map viewing; login required to submit reports or cleanups.
-- District geo-data abstracted for future multi-district support.
+- District geo-data abstracted — now all 12 Commission Districts; extensible to more counties.
 - Anti-abuse: rate limiting + IP banning.
 - Modern, accessible, mobile-first UI/UX.
 - Preserve geospatial correctness (`SRID 4326`, `[lng, lat]` order).

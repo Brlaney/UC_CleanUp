@@ -16,7 +16,7 @@ Interactive web map for reporting trash and organizing cleanup efforts in the Up
 </tr>
 <tr>
 <td><img src="images/Demo_2.png" alt="Completed cleanups page" width="420"></td>
-<td><img src="images/Demo_3.png" alt="District 3 boundary with site detail" width="420"></td>
+<td><img src="images/Demo_3.png" alt="District boundary with site detail" width="420"></td>
 <td><img src="images/Demo_4.png" alt="Cleanup mode draw area" width="420"></td>
 </tr>
 </table>
@@ -110,12 +110,12 @@ Interactive web map for reporting trash and organizing cleanup efforts in the Up
 ### Run
 
 ```bash
-git clone https://github.com/Brlaney/Upper-Cumberland-CleanUp.git
-cd Upper-Cumberland-CleanUp
+git clone https://github.com/Brlaney/UC_CleanUp.git
+cd UC_CleanUp
 docker compose up --build
 ```
 
-App is at `http://localhost:8001`. Putnam County boundary and all 12 Commission District boundaries are seeded automatically on first run.
+App is at `http://localhost:8000` (override the port with `WEB_PORT`). Putnam County boundary and all 12 Commission District boundaries are seeded automatically on first run.
 
 ```bash
 # Create a superuser
@@ -199,6 +199,15 @@ Then set `VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY`, and `VAPID_EMAIL` in your `.en
 | `GET` | `/api/teams/<slug>/` | Single team detail |
 | `GET` | `/api/trash-sites/<id>/detail/` | Full site detail |
 | `GET` | `/api/cleanups/` | Paginated cleaned sites |
+| `GET` | `/api/challenges/` | Active seasonal challenges with progress |
+| `GET` | `/api/challenges/<slug>/` | Challenge detail |
+| `GET` | `/api/badges/` | All badges (+ earned status if logged in) |
+| `GET` | `/api/districts/<slug>/stats/` | Per-district aggregate stats |
+| `GET` | `/api/events/<id>/flyer/` | Printable event flyer (QR + static map) |
+| `GET` | `/challenges/` | Seasonal challenges page |
+| `GET` | `/districts/`, `/districts/<slug>/` | District index + detail pages |
+| `GET` | `/embed/` | Embeddable map widget (X-Frame exempt) |
+| `GET` | `/healthz/cron/` | Scheduled-job run status |
 | `GET` | `/api/push/vapid-key/` | VAPID public key for push subscription |
 | `GET` | `/healthz` | Health check |
 | `GET` | `/sw.js` | Service Worker |
@@ -221,6 +230,8 @@ Then set `VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY`, and `VAPID_EMAIL` in your `.en
 | `POST` | `/api/push/unsubscribe/` | Unsubscribe from push notifications |
 | `GET/POST` | `/api/preferences/` | Map and profile preferences |
 | `POST` | `/api/feedback/` | Submit feedback |
+| `GET` | `/api/export/sites.{csv,geojson}` | Export sites (own reports; all statuses for Coordinator/Admin) |
+| `GET` | `/dashboard/` | Coordinator/Admin dashboard (verifications, chronic sites, per-district breakdown) |
 
 ---
 
@@ -230,8 +241,8 @@ Then set `VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY`, and `VAPID_EMAIL` in your `.en
 District          — name, slug, geometry (MultiPolygon), active
 Profile           — user (1-1), role (MEMBER/COORDINATOR/ADMIN), public_profile
 TrashSite         — status, location (Point), area (Polygon), district FK, team FK,
-                    title, description, severity, hazard_flag,
-                    created_by, claimed_by, verified_by, verified_at,
+                    title, description, severity, hazard_flag, hazard_types (JSON),
+                    chronic_site, created_by, claimed_by, verified_by, verified_at,
                     verification_note, work_order, created_at, cleaned_at
 CleanupProof      — trash_site FK, route_cleanup FK, note, bags_count,
                     created_by, team FK
@@ -247,7 +258,11 @@ PushSubscription  — user FK, endpoint, p256dh, auth_key,
                     saved_location (Point), notification_radius_miles
 FeedbackEntry     — feedback_type, status, message, page_url, created_by
 IPBan             — ip_address, reason, expires_at
-UserMapPreference — user (1-1), default_county, visible_district_slugs
+UserMapPreference — user (1-1), default_counties, visible_district_slugs
+Badge             — slug, name, description, icon
+UserBadge         — user FK, badge FK, awarded_at (unique per user + badge)
+Challenge         — name, slug, start_date, end_date, bag_goal, status
+ScheduledJobLog   — job_name, last_run_at, last_success_at, last_status, last_error
 ```
 
 ---

@@ -42,6 +42,36 @@
     subdomains: "abcd",
   }).addTo(map);
 
+  /* ---- Status legend (bottom-left; collapsible) ---- */
+  (function () {
+    var Legend = L.Control.extend({
+      options: { position: "bottomleft" },
+      onAdd: function () {
+        var el = L.DomUtil.create("div", "map-legend");
+        var collapsed = isMobileView();
+        el.innerHTML =
+          '<button type="button" class="map-legend-toggle" aria-expanded="' + (!collapsed) +
+          '"><span class="map-legend-title">Legend</span><span class="map-legend-chevron" aria-hidden="true"></span></button>' +
+          '<div class="map-legend-body"' + (collapsed ? ' hidden' : '') + '>' +
+            '<div class="map-legend-row"><span class="map-legend-dot" style="background:' + COLORS.pending + '"></span>Pending</div>' +
+            '<div class="map-legend-row"><span class="map-legend-dot" style="background:' + COLORS.in_progress + '"></span>In Progress</div>' +
+            '<div class="map-legend-row"><span class="map-legend-dot" style="background:' + COLORS.cleaned + '"></span>Cleaned</div>' +
+            '<div class="map-legend-row"><span class="map-legend-dot map-legend-dot--chronic" style="background:' + COLORS.pending + '"></span>Chronic site</div>' +
+          '</div>';
+        L.DomEvent.disableClickPropagation(el);
+        var toggle = el.querySelector(".map-legend-toggle");
+        var body = el.querySelector(".map-legend-body");
+        toggle.addEventListener("click", function () {
+          var open = body.hasAttribute("hidden");
+          if (open) { body.removeAttribute("hidden"); } else { body.setAttribute("hidden", ""); }
+          toggle.setAttribute("aria-expanded", String(open));
+        });
+        return el;
+      },
+    });
+    map.addControl(new Legend());
+  })();
+
   var trashLayer = (typeof L.markerClusterGroup === "function"
     ? L.markerClusterGroup({ maxClusterRadius: 40, disableClusteringAtZoom: 14 })
     : L.layerGroup()

@@ -29,7 +29,7 @@
         <!-- Address search -->
         <div class="map-search" id="map-search" role="search" aria-label="Search address">
             <input type="search" id="search-input" placeholder="Search address or place&hellip;" autocomplete="off"
-                   aria-label="Search address or place" aria-autocomplete="list" aria-controls="search-results"
+                   role="combobox" aria-label="Search address or place" aria-autocomplete="list" aria-controls="search-results"
                    aria-expanded="false">
             <ul class="search-results hidden" id="search-results" role="listbox" aria-label="Search suggestions"></ul>
         </div>
@@ -136,6 +136,12 @@
             <h3>No reports in this area yet</h3>
             <p>Be the first — switch to <strong>Report Trash</strong> and drop a pin where you see litter.</p>
         </div>
+    </div>
+    <!-- Compact community-impact strip, shown on mobile where the panel is hidden -->
+    <div class="mobile-impact-strip" id="mobile-impact-strip" aria-label="Community impact">
+        <div class="mi-stat"><span class="mi-num" id="m-impact-bags">—</span><span class="mi-label">Bags</span></div>
+        <div class="mi-stat"><span class="mi-num" id="m-impact-cleaned">—</span><span class="mi-label">Cleaned</span></div>
+        <div class="mi-stat"><span class="mi-num" id="m-impact-reported">—</span><span class="mi-label">Reported</span></div>
     </div>
 </section>
 

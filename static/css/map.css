@@ -877,6 +877,7 @@
 .mobile-fab-stack,
 .mobile-card,
 .mobile-mode-picker,
+.mobile-impact-strip,
 .mobile-detail-card { display: none; }
 
 @media (max-width: 1100px) {
@@ -904,6 +905,47 @@
 
   /* Hide desktop control panel entirely on mobile */
   .control-panel { display: none !important; }
+
+  /* ---- Mobile impact strip (top of map) ---- */
+  .mobile-impact-strip {
+    display: flex;
+    position: absolute;
+    top: 0.6rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 900;
+    gap: 0.15rem;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid var(--color-border-soft);
+    border-radius: var(--radius-pill, 999px);
+    box-shadow: 0 2px 10px rgba(4, 22, 40, 0.18);
+    padding: 0.35rem 0.35rem;
+    max-width: calc(100vw - 2rem);
+  }
+
+  .mi-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.1rem 0.75rem;
+  }
+
+  .mi-stat + .mi-stat { border-left: 1px solid var(--color-border-soft); }
+
+  .mi-num {
+    font-size: 1.05rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--color-btn-primary-bg);
+  }
+
+  .mi-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
 
   /* ---- FAB stack ---- */
   .mobile-fab-stack {

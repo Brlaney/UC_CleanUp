@@ -627,6 +627,10 @@
         "impact-cleaned": data.sites_cleaned || 0,
         "impact-reported": data.sites_reported || 0,
         "impact-volunteers": data.active_volunteers_this_month || 0,
+        // Mobile impact strip (shown when the desktop panel is hidden)
+        "m-impact-bags": data.bags_collected || 0,
+        "m-impact-cleaned": data.sites_cleaned || 0,
+        "m-impact-reported": data.sites_reported || 0,
       };
       Object.keys(maps).forEach(function (id) {
         var el = document.getElementById(id);

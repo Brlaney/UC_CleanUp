@@ -2519,3 +2519,63 @@ class Migration0013Tests(TestCase):
             self.fail(
                 f"Unmigrated model changes detected (exit {e.code}):\n{out.getvalue()}"
             )
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class SeedDemoCommandTests(TestCase):
+    """The seed_demo management command populates realistic local demo content."""
+
+    def setUp(self):
+        District.objects.create(
+            name="Test District", slug="test-district", geometry=TEST_DISTRICT_GEOM, active=True
+        )
+
+    def _run(self, **kwargs):
+        from io import StringIO
+        from django.core.management import call_command
+        # Django runs tests with DEBUG=False; --force is required to pass the
+        # local-only guard against the Docker test DB (host 'db', not prod).
+        kwargs.setdefault("force", True)
+        out = StringIO()
+        call_command("seed_demo", stdout=out, stderr=out, **kwargs)
+        return out.getvalue()
+
+    def test_seeds_expected_content(self):
+        self._run(scale=0.25, seed=1)
+        demo_users = User.objects.filter(username__startswith="demo_")
+        self.assertGreaterEqual(demo_users.count(), 5)
+        # Every demo user has a profile (auto-created by signal) and public flag set.
+        self.assertTrue(all(u.profile.public_profile for u in demo_users))
+        # Content was generated across the core models.
+        self.assertTrue(TrashSite.objects.exists())
+        self.assertTrue(CleanupEvent.objects.exists())
+        self.assertTrue(Team.objects.filter(slug__startswith="demo-").exists())
+        self.assertTrue(Challenge.objects.filter(slug__startswith="demo-").exists())
+        self.assertTrue(ActivityLog.objects.exists())
+        # Cleaned sites carry before/after proof photos so galleries render.
+        cleaned = TrashSite.objects.filter(status=TrashSite.Status.CLEANED)
+        if cleaned.exists():
+            self.assertTrue(Photo.objects.filter(photo_type=Photo.PhotoType.BEFORE).exists())
+            self.assertTrue(Photo.objects.filter(photo_type=Photo.PhotoType.AFTER).exists())
+
+    def test_refuses_double_seed_without_reset(self):
+        from django.core.management.base import CommandError
+        self._run(scale=0.25, seed=1)
+        with self.assertRaises(CommandError):
+            self._run(scale=0.25, seed=1)
+
+    def test_reset_is_idempotent_and_removes_demo_only(self):
+        # A real (non-demo) user must survive a reset.
+        real = User.objects.create_user(username="real_person", password="x")
+        self._run(scale=0.25, seed=1)
+        first_count = User.objects.filter(username__startswith="demo_").count()
+        self._run(scale=0.25, seed=1, reset=True)
+        second_count = User.objects.filter(username__startswith="demo_").count()
+        self.assertEqual(first_count, second_count)
+        self.assertTrue(User.objects.filter(pk=real.pk).exists())
+
+    @override_settings(DEBUG=False)
+    def test_refuses_when_debug_false(self):
+        from django.core.management.base import CommandError
+        with self.assertRaises(CommandError):
+            self._run(scale=0.25, seed=1, force=False)

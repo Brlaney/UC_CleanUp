@@ -693,6 +693,9 @@
         }
       });
 
+      var emptyState = document.getElementById("map-empty-state");
+      if (emptyState) emptyState.classList.toggle("hidden", features.length > 0);
+
       U.announce(features.length + " report" + (features.length !== 1 ? "s" : "") + " loaded.");
     }).catch(function () {
       U.showToast("Failed to load map features.", "error");

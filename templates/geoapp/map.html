@@ -131,7 +131,12 @@
             </section>
         </div>
     </aside>
-    <div id="map" role="application" aria-label="Interactive cleanup map"></div>
+    <div id="map" role="application" aria-label="Interactive cleanup map">
+        <div id="map-empty-state" class="map-empty-state hidden" role="status">
+            <h3>No reports in this area yet</h3>
+            <p>Be the first — switch to <strong>Report Trash</strong> and drop a pin where you see litter.</p>
+        </div>
+    </div>
 </section>
 
 <!-- Mobile FAB stack -->
@@ -356,4 +361,5 @@
         };
     </script>
     <script defer src="{% static 'js/map.js' %}"></script>
+    <script defer src="{% static 'js/onboarding.js' %}"></script>
 {% endblock %}

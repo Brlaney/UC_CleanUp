@@ -13,6 +13,19 @@
         <p>See the difference volunteers are making in the Upper-Cumberland region. Every cleanup counts.</p>
     </div>
 
+    {% if total_cleanups %}
+        <div class="cleanups-impact" aria-label="Community impact totals">
+            <div class="cleanups-impact-stat">
+                <span class="cleanups-impact-num">{{ total_cleanups }}</span>
+                <span class="cleanups-impact-label">Sites Cleaned</span>
+            </div>
+            <div class="cleanups-impact-stat">
+                <span class="cleanups-impact-num">{{ total_bags }}</span>
+                <span class="cleanups-impact-label">Bags Collected</span>
+            </div>
+        </div>
+    {% endif %}
+
     {% if items %}
         <div class="cleanup-grid">
             {% for item in items %}
@@ -42,7 +55,7 @@
                                 <h3 class="gallery-label">Before</h3>
                                 <div class="gallery-photos">
                                     {% for url in item.photos.before %}
-                                        <img src="{{ url }}" alt="Before cleanup photo" loading="lazy">
+                                        <img src="{{ url }}" alt="Before cleanup photo for {{ item.title }}" loading="lazy" class="gallery-photo" tabindex="0" role="button">
                                     {% endfor %}
                                 </div>
                             </div>
@@ -52,7 +65,7 @@
                                 <h3 class="gallery-label">After</h3>
                                 <div class="gallery-photos">
                                     {% for url in item.photos.after %}
-                                        <img src="{{ url }}" alt="After cleanup photo" loading="lazy">
+                                        <img src="{{ url }}" alt="After cleanup photo for {{ item.title }}" loading="lazy" class="gallery-photo" tabindex="0" role="button">
                                     {% endfor %}
                                 </div>
                             </div>
@@ -64,7 +77,7 @@
                         <h3 class="gallery-label">Report photos</h3>
                         <div class="gallery-photos">
                             {% for url in item.photos.report %}
-                                <img src="{{ url }}" alt="Report photo" loading="lazy">
+                                <img src="{{ url }}" alt="Report photo for {{ item.title }}" loading="lazy" class="gallery-photo" tabindex="0" role="button">
                             {% endfor %}
                         </div>
                     </div>
@@ -91,4 +104,49 @@
         </div>
     {% endif %}
 </section>
+
+<div class="photo-lightbox hidden" id="cleanup-lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer">
+    <button class="photo-lightbox-close" id="cleanup-lightbox-close" type="button" aria-label="Close photo">&times;</button>
+    <img class="photo-lightbox-img" id="cleanup-lightbox-img" src="" alt="">
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var box = document.getElementById("cleanup-lightbox");
+  var img = document.getElementById("cleanup-lightbox-img");
+  var closeBtn = document.getElementById("cleanup-lightbox-close");
+  if (!box) return;
+  var lastFocus = null;
+
+  function open(src, alt) {
+    lastFocus = document.activeElement;
+    img.src = src;
+    img.alt = alt || "Cleanup photo";
+    box.classList.remove("hidden");
+    closeBtn.focus();
+  }
+  function close() {
+    box.classList.add("hidden");
+    img.src = "";
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+
+  document.addEventListener("click", function (e) {
+    var photo = e.target.closest(".gallery-photo");
+    if (photo) { open(photo.src, photo.alt); return; }
+    if (e.target === box || e.target === closeBtn) close();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !box.classList.contains("hidden")) close();
+    // Enter/Space on a focused photo (role=button)
+    if ((e.key === "Enter" || e.key === " ") && document.activeElement &&
+        document.activeElement.classList.contains("gallery-photo")) {
+      e.preventDefault();
+      open(document.activeElement.src, document.activeElement.alt);
+    }
+  });
+}());
+</script>
 {% endblock %}

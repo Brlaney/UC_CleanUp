@@ -373,9 +373,17 @@ def cleanups_view(request):
             "photos": photos,
         })
 
+    total_cleanups = sites.count()
+    total_bags = (
+        CleanupProof.objects.filter(trash_site__status=TrashSite.Status.CLEANED)
+        .aggregate(total=Sum("bags_count"))["total"] or 0
+    )
+
     return render(request, "geoapp/cleanups.html", {
         "items": items,
         "page_obj": page_obj,
+        "total_cleanups": total_cleanups,
+        "total_bags": total_bags,
     })
 
 

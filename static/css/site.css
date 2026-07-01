@@ -396,6 +396,90 @@ button:disabled,
   border: 1px solid var(--color-border-soft);
 }
 
+/* Clickable gallery thumbnails open the lightbox */
+.gallery-photo {
+  cursor: zoom-in;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.gallery-photo:hover,
+.gallery-photo:focus-visible {
+  transform: scale(1.04);
+  box-shadow: 0 4px 14px rgba(4, 22, 40, 0.25);
+  outline: 2px solid var(--color-btn-primary-bg);
+  outline-offset: 1px;
+}
+
+/* Community impact banner on the cleanups page */
+.cleanups-impact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0 0 1.75rem;
+}
+
+.cleanups-impact-stat {
+  flex: 1 1 160px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 1rem 1.25rem;
+  text-align: center;
+}
+
+.cleanups-impact-num {
+  display: block;
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--color-btn-primary-bg);
+}
+
+.cleanups-impact-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+/* Photo lightbox (shared markup with the map view) */
+.photo-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-lightbox.hidden { display: none; }
+
+.photo-lightbox-img {
+  max-width: min(92vw, 900px);
+  max-height: 88vh;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+}
+
+.photo-lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.photo-lightbox-close:hover { opacity: 1; }
+
 .pagination {
   display: flex;
   align-items: center;

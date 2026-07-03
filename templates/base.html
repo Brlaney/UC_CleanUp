@@ -7,6 +7,19 @@
     <meta name="csrf-token" content="{{ csrf_token }}">
     <meta name="description" content="{% block meta_description %}UC CleanUp — community-powered trash reporting and cleanup tracking for the Upper Cumberland region of Tennessee.{% endblock %}">
     <title>{% block title %}Upper-Cumberland CleanUp{% endblock %}</title>
+
+    {% comment %} Social link-preview tags. Pages override og_title / og_description / og_image. {% endcomment %}
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Upper-Cumberland CleanUp">
+    <meta property="og:title" content="{% block og_title %}Upper-Cumberland CleanUp{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Community-powered trash reporting and cleanup tracking for the Upper Cumberland region of Tennessee. Report litter, join a cleanup, and see the before &amp; after.{% endblock %}">
+    <meta property="og:url" content="{% if request %}{{ request.build_absolute_uri }}{% endif %}">
+    <meta property="og:image" content="{% block og_image %}{% if request %}{{ request.scheme }}://{{ request.get_host }}{% endif %}{% static 'images/og-image.png' %}{% endblock %}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    {% comment %} X/Twitter falls back to the og: title/description above; only card + image are needed here. {% endcomment %}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="{% block twitter_image %}{% if request %}{{ request.scheme }}://{{ request.get_host }}{% endif %}{% static 'images/og-image.png' %}{% endblock %}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">

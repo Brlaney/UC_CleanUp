@@ -4,7 +4,7 @@ Repeatable manual scripts mapped to `docs/QA_MATRIX.md`.
 
 ## Preconditions
 - Test environment has running PostGIS and Django app.
-- District 3 boundary is seeded (automatic on Docker startup).
+- Putnam County and the 12 Commission District boundaries are seeded (automatic on Docker startup via `seed_district` + `fetch_districts`).
 - For write-endpoint tests, you have a logged-in browser session.
 
 ## MT-001 Public Map Access

@@ -29,7 +29,7 @@
         <!-- Address search -->
         <div class="map-search" id="map-search" role="search" aria-label="Search address">
             <input type="search" id="search-input" placeholder="Search address or place&hellip;" autocomplete="off"
-                   aria-label="Search address or place" aria-autocomplete="list" aria-controls="search-results"
+                   role="combobox" aria-label="Search address or place" aria-autocomplete="list" aria-controls="search-results"
                    aria-expanded="false">
             <ul class="search-results hidden" id="search-results" role="listbox" aria-label="Search suggestions"></ul>
         </div>
@@ -131,7 +131,18 @@
             </section>
         </div>
     </aside>
-    <div id="map" role="application" aria-label="Interactive cleanup map"></div>
+    <div id="map" role="application" aria-label="Interactive cleanup map">
+        <div id="map-empty-state" class="map-empty-state hidden" role="status">
+            <h3>No reports in this area yet</h3>
+            <p>Be the first — switch to <strong>Report Trash</strong> and drop a pin where you see litter.</p>
+        </div>
+    </div>
+    <!-- Compact community-impact strip, shown on mobile where the panel is hidden -->
+    <div class="mobile-impact-strip" id="mobile-impact-strip" aria-label="Community impact">
+        <div class="mi-stat"><span class="mi-num" id="m-impact-bags">—</span><span class="mi-label">Bags</span></div>
+        <div class="mi-stat"><span class="mi-num" id="m-impact-cleaned">—</span><span class="mi-label">Cleaned</span></div>
+        <div class="mi-stat"><span class="mi-num" id="m-impact-reported">—</span><span class="mi-label">Reported</span></div>
+    </div>
 </section>
 
 <!-- Mobile FAB stack -->
@@ -196,7 +207,31 @@
                 <option value="MEDIUM">Medium</option>
                 <option value="HEAVY">Heavy</option>
             </select>
-            <label class="checkbox-label"><input type="checkbox" name="hazard_flag" value="1"> Hazard present</label>
+            <fieldset class="hazard-picker">
+              <legend>Hazards <span class="field-optional">(optional)</span></legend>
+              <div class="hazard-picker-grid">
+                <label class="hazard-option">
+                  <input type="checkbox" name="hazard_types" value="sharps">
+                  <img src="{% static 'images/icons/hazards/syringe_1.svg' %}" alt="" class="hazard-icon" width="24" height="40">
+                  <span class="hazard-label">Sharps / Needles</span>
+                </label>
+                <label class="hazard-option">
+                  <input type="checkbox" name="hazard_types" value="vape_device">
+                  <img src="{% static 'images/icons/hazards/vape_1.svg' %}" alt="" class="hazard-icon" width="24" height="40">
+                  <span class="hazard-label">Vape Device</span>
+                </label>
+                <label class="hazard-option">
+                  <input type="checkbox" name="hazard_types" value="vape_pen">
+                  <img src="{% static 'images/icons/hazards/vape_2.svg' %}" alt="" class="hazard-icon" width="24" height="40">
+                  <span class="hazard-label">Vape Pen</span>
+                </label>
+                <label class="hazard-option">
+                  <input type="checkbox" name="hazard_types" value="other">
+                  <span class="hazard-icon hazard-icon--other">⚠</span>
+                  <span class="hazard-label">Other</span>
+                </label>
+              </div>
+            </fieldset>
             {% if user.is_authenticated %}
             <label for="trash-team">Team <small style="font-weight:400">(optional)</small></label>
             <select name="team" id="trash-team">
@@ -332,4 +367,5 @@
         };
     </script>
     <script defer src="{% static 'js/map.js' %}"></script>
+    <script defer src="{% static 'js/onboarding.js' %}"></script>
 {% endblock %}

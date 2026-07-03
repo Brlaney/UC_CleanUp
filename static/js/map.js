@@ -42,6 +42,36 @@
     subdomains: "abcd",
   }).addTo(map);
 
+  /* ---- Status legend (bottom-left; collapsible) ---- */
+  (function () {
+    var Legend = L.Control.extend({
+      options: { position: "bottomleft" },
+      onAdd: function () {
+        var el = L.DomUtil.create("div", "map-legend");
+        var collapsed = isMobileView();
+        el.innerHTML =
+          '<button type="button" class="map-legend-toggle" aria-expanded="' + (!collapsed) +
+          '"><span class="map-legend-title">Legend</span><span class="map-legend-chevron" aria-hidden="true"></span></button>' +
+          '<div class="map-legend-body"' + (collapsed ? ' hidden' : '') + '>' +
+            '<div class="map-legend-row"><span class="map-legend-dot" style="background:' + COLORS.pending + '"></span>Pending</div>' +
+            '<div class="map-legend-row"><span class="map-legend-dot" style="background:' + COLORS.in_progress + '"></span>In Progress</div>' +
+            '<div class="map-legend-row"><span class="map-legend-dot" style="background:' + COLORS.cleaned + '"></span>Cleaned</div>' +
+            '<div class="map-legend-row"><span class="map-legend-dot map-legend-dot--chronic" style="background:' + COLORS.pending + '"></span>Chronic site</div>' +
+          '</div>';
+        L.DomEvent.disableClickPropagation(el);
+        var toggle = el.querySelector(".map-legend-toggle");
+        var body = el.querySelector(".map-legend-body");
+        toggle.addEventListener("click", function () {
+          var open = body.hasAttribute("hidden");
+          if (open) { body.removeAttribute("hidden"); } else { body.setAttribute("hidden", ""); }
+          toggle.setAttribute("aria-expanded", String(open));
+        });
+        return el;
+      },
+    });
+    map.addControl(new Legend());
+  })();
+
   var trashLayer = (typeof L.markerClusterGroup === "function"
     ? L.markerClusterGroup({ maxClusterRadius: 40, disableClusteringAtZoom: 14 })
     : L.layerGroup()
@@ -597,6 +627,10 @@
         "impact-cleaned": data.sites_cleaned || 0,
         "impact-reported": data.sites_reported || 0,
         "impact-volunteers": data.active_volunteers_this_month || 0,
+        // Mobile impact strip (shown when the desktop panel is hidden)
+        "m-impact-bags": data.bags_collected || 0,
+        "m-impact-cleaned": data.sites_cleaned || 0,
+        "m-impact-reported": data.sites_reported || 0,
       };
       Object.keys(maps).forEach(function (id) {
         var el = document.getElementById(id);
@@ -663,6 +697,9 @@
         }
       });
 
+      var emptyState = document.getElementById("map-empty-state");
+      if (emptyState) emptyState.classList.toggle("hidden", features.length > 0);
+
       U.announce(features.length + " report" + (features.length !== 1 ? "s" : "") + " loaded.");
     }).catch(function () {
       U.showToast("Failed to load map features.", "error");
@@ -674,8 +711,46 @@
     return '<span class="detail-badge detail-badge--' + cls + '">' + U.escapeHtml(label) + '</span>';
   }
 
+  function renderHazardBadge(label) {
+    return '<span class="detail-badge detail-badge--hazard">' +
+      '<span class="detail-badge-icon" aria-hidden="true">⚠</span>' + U.escapeHtml(label) + '</span>';
+  }
+
   function renderMeta(label, value) {
     return '<div class="detail-meta-item"><dt>' + U.escapeHtml(label) + '</dt><dd>' + U.escapeHtml(value) + '</dd></div>';
+  }
+
+  // Like renderMeta but the value is trusted HTML (e.g. a relative-time span).
+  function renderMetaRaw(label, rawValue) {
+    return '<div class="detail-meta-item"><dt>' + U.escapeHtml(label) + '</dt><dd>' + rawValue + '</dd></div>';
+  }
+
+  function _relPhrase(n, unit, future) {
+    var s = n + " " + unit + (n !== 1 ? "s" : "");
+    return future ? "in " + s : s + " ago";
+  }
+
+  function timeAgo(iso) {
+    if (!iso) return "";
+    var diff = Date.now() - new Date(iso).getTime();
+    var future = diff < 0;
+    diff = Math.abs(diff);
+    var mins = Math.round(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return _relPhrase(mins, "minute", future);
+    var hrs = Math.round(mins / 60);
+    if (hrs < 24) return _relPhrase(hrs, "hour", future);
+    var days = Math.round(hrs / 24);
+    if (days < 30) return _relPhrase(days, "day", future);
+    var months = Math.round(days / 30);
+    if (months < 12) return _relPhrase(months, "month", future);
+    return _relPhrase(Math.round(months / 12), "year", future);
+  }
+
+  // Relative time as the primary label, with the absolute timestamp on hover.
+  function relDate(iso) {
+    if (!iso) return "-";
+    return '<span class="rel-time" title="' + U.escapeHtml(formatDate(iso)) + '">' + U.escapeHtml(timeAgo(iso)) + '</span>';
   }
 
   function showDetail(siteId) {
@@ -692,28 +767,29 @@
       html += '<div class="detail-panel-header">';
       html += '<span class="detail-kicker">Trash Site</span>';
       html += '<h3>' + U.escapeHtml(site.title || "Unnamed Site") + '</h3>';
+      // All status/attribute chips share one consistent row.
       html += '<div class="detail-badge-row">';
       html += renderBadge(titleCase(site.status), tokenClass(site.status));
       if (site.severity) html += renderBadge(titleCase(site.severity), tokenClass(site.severity));
-      if (site.hazard_flag) html += renderBadge("Hazard", "hazard");
-      if (site.chronic) html += '<span class="chronic-badge">Chronic</span>';
+      if (site.hazard_flag) {
+        var hazardLabels = { sharps: "Sharps / Needles", vape_device: "Vape Device", vape_pen: "Vape Pen", other: "Other Hazard" };
+        var types = (site.hazard_types && site.hazard_types.length) ? site.hazard_types : ["other"];
+        types.forEach(function(t) { html += renderHazardBadge(hazardLabels[t] || "Hazard"); });
+      }
+      if (site.chronic) html += renderBadge("Chronic", "chronic");
+      if (site.verified_at) html += renderBadge("Verified \u2713", "verified");
+      if (site.trajectory && site.trajectory !== "resolved" && site.trajectory !== "stable") {
+        var trajLabel = site.trajectory === "worsening" ? "\u2197 Worsening" : "\u2198 Improving";
+        html += renderBadge(trajLabel, site.trajectory);
+      }
       html += '</div></div>';
 
-      if (site.verified_at) {
-        html += renderBadge("Verified \u2713", "verified");
-      }
-
-      // Trajectory signal (Phase 5D)
-      if (site.trajectory && site.trajectory !== "resolved" && site.trajectory !== "stable") {
-        var trajLabel = site.trajectory === "worsening" ? "\u2197 Getting worse" : "\u2198 Improving";
-        html += '<span class="trajectory-badge trajectory-badge--' + site.trajectory + '">' + trajLabel + '</span> ';
-      }
       html += '<dl class="detail-meta-grid">';
       html += renderMeta("Reported by", site.created_by);
-      html += renderMeta("Created", formatDate(site.created_at));
-      if (site.cleaned_at) html += renderMeta("Cleaned", formatDate(site.cleaned_at));
+      html += renderMetaRaw("Created", relDate(site.created_at));
+      if (site.cleaned_at) html += renderMetaRaw("Cleaned", relDate(site.cleaned_at));
       if (site.verified_at) {
-        html += renderMeta("Verified by", site.verified_by + " on " + formatDate(site.verified_at));
+        html += renderMetaRaw("Verified by", U.escapeHtml(site.verified_by) + " &middot; " + relDate(site.verified_at));
         if (site.work_order) html += renderMeta("Work Order", site.work_order);
       }
       html += '</dl>';
@@ -746,7 +822,7 @@
           html += '<span class="tl-icon" aria-hidden="true">' + (TL_ICONS[ev.type] || "•") + '</span>';
           html += '<div class="tl-body">';
           html += '<span class="tl-label">' + U.escapeHtml(ev.label) + '</span>';
-          html += '<span class="tl-meta">by ' + U.escapeHtml(ev.by) + ' &middot; ' + formatDate(ev.at) + '</span>';
+          html += '<span class="tl-meta">by ' + U.escapeHtml(ev.by) + ' &middot; ' + relDate(ev.at) + '</span>';
           html += '</div></div>';
         });
         html += '</div></div>';
@@ -761,7 +837,7 @@
             html += '<div class="proof-card">';
             html += '<div class="proof-card-top">';
             if (proof.bags_count) html += '<span class="proof-bags">' + proof.bags_count + ' bags</span>';
-            html += '<span class="proof-meta">' + U.escapeHtml(proof.created_by) + ' &middot; ' + formatDate(proof.created_at) + '</span>';
+            html += '<span class="proof-meta">' + U.escapeHtml(proof.created_by) + ' &middot; ' + relDate(proof.created_at) + '</span>';
             html += '</div>';
             if (proof.note) html += '<p class="proof-note">' + U.escapeHtml(proof.note) + '</p>';
             html += '</div>';

@@ -1,6 +1,6 @@
 # Current Features (As-Is)
 
-This file documents implemented behavior in the current codebase only.
+This file documents implemented behavior in the current codebase only. It focuses on the **core map / report / cleanup flows** (F-001 … F-024). For the full Phase 2–6 feature set (verification, impact counter, heatmap, leaderboard, events, teams, badges, challenges, coordinator dashboard, data export, push/PWA), see [`SUMMARY.md`](SUMMARY.md).
 
 ## Core User Flows
 
@@ -93,7 +93,7 @@ This file documents implemented behavior in the current codebase only.
   - Feedback submits without leaving the app.
 
 ### F-012 Role-Aware TrashSite Permissions
-- `Profile` records support `MEMBER` and `ADMIN` roles.
+- `Profile` records support `MEMBER`, `COORDINATOR`, and `ADMIN` roles (Coordinators/Admins can verify cleanups).
 - TrashSite PATCH editing limited to creator or admin.
 - Setting status to `INVALID` limited to admins.
 - Marking cleaned available to any authenticated user unless site is `INVALID`.
@@ -106,7 +106,7 @@ This file documents implemented behavior in the current codebase only.
 - `District` model stores name, slug, MultiPolygon geometry, active flag.
 - `GET /api/districts/` returns active districts with GeoJSON geometry.
 - Trash sites auto-assigned to districts via `geometry__covers` spatial query.
-- Designed for future multi-district support.
+- Multi-district is live: Putnam County + all 12 Commission Districts are seeded; the model is built to extend to more counties.
 - Done when:
   - District boundary loads from API. Sites are assigned to districts on creation.
 
